@@ -4,6 +4,7 @@
   "description": "ERP System - Root directory",
   "private": true,
   "scripts": {
+    "postinstall": "cd backend && npm install",
     "start": "cd backend && npm start",
     "install-all": "cd backend && npm install"
   },
