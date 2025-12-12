@@ -1,0 +1,20 @@
+{
+<<<<<<< HEAD
+  "name": "erb-root",
+  "version": "1.0.0",
+  "description": "ERP System - Root directory",
+  "private": true,
+  "scripts": {
+    "start": "cd backend && npm start",
+    "install-all": "cd backend && npm install"
+  },
+  "keywords": [],
+  "author": "Abdelhafez Adel",
+  "license": "MIT"
+}
+=======
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}
+>>>>>>> 626ecf820640248e4b9bf87ba8c75e56c248494b

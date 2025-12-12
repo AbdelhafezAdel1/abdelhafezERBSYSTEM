@@ -1,0 +1,38 @@
+{
+  "name": "erb-system",
+  "version": "1.0.0",
+  "description": "ERP System for Customs Clearance Management with ZATCA Integration",
+  "main": "app_pg.js",
+  "scripts": {
+    "start": "node app_pg.js",
+    "dev": "node app_pg.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "erp",
+    "customs",
+    "zatca",
+    "invoicing",
+    "saudi-arabia"
+  ],
+  "author": "Abdelhafez Adel",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "body-parser": "^2.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "moment": "^2.30.1",
+    "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
+    "sqlite3": "^5.1.7",
+    "uuid": "^13.0.0",
+    "winston": "^3.18.3",
+    "xml2js": "^0.6.2"
+  }
+}

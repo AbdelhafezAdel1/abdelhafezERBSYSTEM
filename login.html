@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول - نظام ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .input-field {
+            transition: all 0.3s ease;
+            border: 2px solid #e5e7eb;
+        }
+
+        .input-field:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            outline: none;
+            transform: translateY(-2px);
+        }
+
+        .login-btn {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            transition: all 0.3s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .register-link {
+            transition: all 0.2s ease;
+        }
+
+        .register-link:hover {
+            transform: scale(1.05);
+        }
+
+        .logo-icon {
+            background: linear-gradient(135deg, #2563eb, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .input-icon {
+            color: #6b7280;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus+.input-icon {
+            color: #2563eb;
+        }
+    </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="login-container rounded-2xl p-8 w-full max-w-md">
+        <!-- Logo & Title -->
+        <div class="text-center mb-8">
+            <div class="inline-block p-4 bg-gradient-to-br from-blue-500 to-green-500 rounded-full mb-4">
+                <i class="fas fa-chart-line text-white text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold logo-icon mb-2">نظام ERP</h1>
+            <p class="text-gray-600">مرحباً بك! الرجاء تسجيل الدخول</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm">
+            <!-- Username Field -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
+                    <i class="fas fa-user ml-2"></i>اسم المستخدم
+                </label>
+                <div class="relative">
+                    <input
+                        class="input-field shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight"
+                        id="username" type="text" placeholder="أدخل اسم المستخدم" required>
+                    <i class="fas fa-user-circle input-icon absolute left-3 top-3 text-xl"></i>
+                </div>
+            </div>
+
+            <!-- Password Field -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                    <i class="fas fa-lock ml-2"></i>كلمة المرور
+                </label>
+                <div class="relative">
+                    <input
+                        class="input-field shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight"
+                        id="password" type="password" placeholder="أدخل كلمة المرور" required>
+                    <i class="fas fa-key input-icon absolute left-3 top-3 text-xl"></i>
+                </div>
+            </div>
+
+            <!-- Login Button -->
+            <div class="mb-6">
+                <button
+                    class="login-btn w-full text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline"
+                    type="submit">
+                    <i class="fas fa-sign-in-alt ml-2"></i>
+                    تسجيل الدخول
+                </button>
+            </div>
+
+            <!-- Register Link Removed -->
+        </form>
+
+        <!-- Footer Info -->
+        <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p class="text-gray-500 text-xs">
+                <i class="fas fa-shield-alt ml-1"></i>
+                نظام آمن ومشفر
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const button = e.target.querySelector('button[type="submit"]');
+
+            // Disable button and show loading
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> جاري تسجيل الدخول...';
+
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    button.innerHTML = '<i class="fas fa-check ml-2"></i> تم بنجاح!';
+                    button.classList.remove('bg-blue-500');
+                    button.classList.add('bg-green-500');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
+                } else {
+                    throw new Error(data.error || 'فشل تسجيل الدخول');
+                }
+            } catch (error) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-sign-in-alt ml-2"></i> تسجيل الدخول';
+                alert('خطأ: ' + error.message);
+            }
+        });
+
+        // Add enter key support for password field
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+
+</html>

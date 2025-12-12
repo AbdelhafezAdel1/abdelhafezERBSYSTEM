@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء حساب - نظام ERP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .register-container {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .input-field {
+            transition: all 0.3s ease;
+            border: 2px solid #e5e7eb;
+        }
+
+        .input-field:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            outline: none;
+            transform: translateY(-2px);
+        }
+
+        .register-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            transition: all 0.3s ease;
+        }
+
+        .register-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .register-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-link {
+            transition: all 0.2s ease;
+        }
+
+        .login-link:hover {
+            transform: scale(1.05);
+        }
+
+        .logo-icon {
+            background: linear-gradient(135deg, #10b981, #2563eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .input-icon {
+            color: #6b7280;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus+.input-icon {
+            color: #10b981;
+        }
+    </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="register-container rounded-2xl p-8 w-full max-w-md">
+        <!-- Logo & Title -->
+        <div class="text-center mb-8">
+            <div class="inline-block p-4 bg-gradient-to-br from-green-500 to-blue-500 rounded-full mb-4">
+                <i class="fas fa-user-plus text-white text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold logo-icon mb-2">إنشاء حساب جديد</h1>
+            <p class="text-gray-600">انضم إلى نظام ERP الآن</p>
+        </div>
+
+        <!-- Register Form -->
+        <form id="registerForm">
+            <!-- Username Field -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="username">
+                    <i class="fas fa-user ml-2"></i>اسم المستخدم
+                </label>
+                <div class="relative">
+                    <input
+                        class="input-field shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight"
+                        id="username" type="text" placeholder="اختر اسم مستخدم" required minlength="3">
+                    <i class="fas fa-user-circle input-icon absolute left-3 top-3 text-xl"></i>
+                </div>
+                <p class="text-gray-500 text-xs mt-1">يجب أن يكون 3 أحرف على الأقل</p>
+            </div>
+
+            <!-- Password Field -->
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                    <i class="fas fa-lock ml-2"></i>كلمة المرور
+                </label>
+                <div class="relative">
+                    <input
+                        class="input-field shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight"
+                        id="password" type="password" placeholder="اختر كلمة مرور قوية" required minlength="4">
+                    <i class="fas fa-key input-icon absolute left-3 top-3 text-xl"></i>
+                </div>
+                <p class="text-gray-500 text-xs mt-1">يجب أن تكون 4 أحرف على الأقل</p>
+            </div>
+
+            <!-- Register Button -->
+            <div class="mb-6">
+                <button
+                    class="register-btn w-full text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline"
+                    type="submit">
+                    <i class="fas fa-user-plus ml-2"></i>
+                    إنشاء الحساب
+                </button>
+            </div>
+
+            <!-- Login Link -->
+            <div class="text-center">
+                <p class="text-gray-600 text-sm mb-2">لديك حساب بالفعل؟</p>
+                <a href="/login.html"
+                    class="login-link inline-block font-bold text-sm text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-sign-in-alt ml-1"></i>
+                    تسجيل الدخول
+                </a>
+            </div>
+        </form>
+
+        <!-- Footer Info -->
+        <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p class="text-gray-500 text-xs">
+                <i class="fas fa-shield-alt ml-1"></i>
+                جميع بياناتك محمية ومشفرة
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const button = e.target.querySelector('button[type="submit"]');
+
+            // Validate
+            if (username.length < 3) {
+                alert('اسم المستخدم يجب أن يكون 3 أحرف على الأقل');
+                return;
+            }
+
+            if (password.length < 4) {
+                alert('كلمة المرور يجب أن تكون 4 أحرف على الأقل');
+                return;
+            }
+
+            // Disable button and show loading
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> جاري إنشاء الحساب...';
+
+            try {
+                const res = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    button.innerHTML = '<i class="fas fa-check ml-2"></i> تم بنجاح!';
+                    button.classList.remove('bg-green-500');
+                    button.classList.add('bg-blue-500');
+                    alert('تم إنشاء الحساب بنجاح! سيتم تحويلك لصفحة تسجيل الدخول');
+                    setTimeout(() => {
+                        window.location.href = '/login.html';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'فشل إنشاء الحساب');
+                }
+            } catch (error) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-user-plus ml-2"></i> إنشاء الحساب';
+                alert('خطأ: ' + error.message);
+            }
+        });
+    </script>
+</body>
+
+</html>

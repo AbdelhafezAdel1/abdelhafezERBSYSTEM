@@ -1,0 +1,37 @@
+<<<<<<< HEAD
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables (IMPORTANT: Never commit!)
+.env
+*.env
+
+# Database files
+*.db
+database/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+data_exports/
+=======
+node_modules/
+
+.DS_Store
+*.db
+*.log
+logs/
+>>>>>>> 626ecf820640248e4b9bf87ba8c75e56c248494b

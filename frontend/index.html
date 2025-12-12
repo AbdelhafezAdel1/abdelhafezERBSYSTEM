@@ -1,0 +1,747 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام ERP الاحترافي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <style>
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block !important;
+            }
+
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #main-content,
+            #sidebar,
+            header {
+                display: none !important;
+            }
+
+            #print-view {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 210mm;
+                height: 297mm;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+        }
+
+        .print-only {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 h-screen flex overflow-hidden font-sans text-right">
+
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()"
+        class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="w-64 bg-gray-900 text-white flex flex-col fixed lg:relative h-full z-50 transition-transform transform translate-x-full lg:translate-x-0 right-0">
+        <div
+            class="p-6 text-2xl font-bold text-center border-b border-gray-800 flex justify-between items-center lg:justify-center">
+            <span>نظام ERP</span>
+            <button onclick="toggleSidebar()" class="lg:hidden text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1">
+                <li><a href="#" onclick="showSection('dashboard')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors active"><i
+                            class="fas fa-chart-pie ml-3 w-6"></i> لوحة التحكم</a></li>
+                <li><a href="#" onclick="showSection('invoice-register')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
+                            class="fas fa-file-invoice ml-3 w-6"></i> سجل الفواتير</a></li>
+                <li><a href="#" onclick="showSection('create-invoice')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
+                            class="fas fa-plus-circle ml-3 w-6"></i> إنشاء فاتورة</a></li>
+                <li><a href="#" onclick="showSection('tax-register')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
+                            class="fas fa-chart-line ml-3 w-6"></i> السجل الضريبي</a></li>
+                <li><a href="#" onclick="showSection('companies')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
+                            class="fas fa-building ml-3 w-6"></i> الشركات</a></li>
+                <li><a href="#" onclick="showSection('bonds')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
+                            class="fas fa-money-bill-wave ml-3 w-6"></i> السندات</a></li>
+                <li><a href="#" onclick="showSection('profile')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i class="fas fa-cog ml-3 w-6"></i>
+                        الإعدادات</a></li>
+            </ul>
+        </nav>
+        <div class="p-4 border-t border-gray-800">
+            <button onclick="logout()"
+                class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors shadow-lg flex items-center justify-center">
+                <i class="fas fa-sign-out-alt ml-2"></i> تسجيل الخروج
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <!-- Top Bar -->
+        <header class="bg-white shadow-sm p-4 flex justify-between items-center lg:hidden">
+            <button onclick="toggleSidebar()" class="text-gray-600 hover:text-gray-900">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+            <span class="font-bold text-lg">نظام ERP</span>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8" id="main-content">
+
+            <!-- Dashboard -->
+            <section id="dashboard" class="section">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">لوحة التحكم</h2>
+                    <div class="text-sm text-gray-500" id="current-date"></div>
+                </div>
+
+                <!-- Filters -->
+                <div class="card p-4 mb-6 flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشهر</label>
+                        <select id="dash-month" class="w-full">
+                            <option value="">كل الأشهر</option>
+                            <option value="01">يناير</option>
+                            <option value="02">فبراير</option>
+                            <option value="03">مارس</option>
+                            <option value="04">أبريل</option>
+                            <option value="05">مايو</option>
+                            <option value="06">يونيو</option>
+                            <option value="07">يوليو</option>
+                            <option value="08">أغسطس</option>
+                            <option value="09">سبتمبر</option>
+                            <option value="10">أكتوبر</option>
+                            <option value="11">نوفمبر</option>
+                            <option value="12">ديسمبر</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">السنة</label>
+                        <select id="dash-year" class="w-full">
+                            <option value="">كل السنوات</option>
+                            <option value="2030">2030</option>
+                            <option value="2029">2029</option>
+                            <option value="2028">2028</option>
+                            <option value="2027">2027</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
+                        <select id="dash-company" class="w-full">
+                            <option value="">كل الشركات</option>
+                        </select>
+                    </div>
+                    <button onclick="loadDashboard()" class="btn btn-primary h-[42px]">
+                        <i class="fas fa-sync-alt ml-2"></i> تحديث
+                    </button>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="card p-6 border-r-4 border-blue-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm font-medium">إجمالي الفواتير</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-2" id="stat-total-invoices">0</h3>
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-full text-blue-500">
+                                <i class="fas fa-file-invoice text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-6 border-r-4 border-green-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm font-medium">إجمالي الإيرادات</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-2" id="stat-total-revenue">0 SAR</h3>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-full text-green-500">
+                                <i class="fas fa-dollar-sign text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-6 border-r-4 border-purple-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm font-medium">الضريبة المحصلة</p>
+                                <h3 class="text-2xl font-bold text-gray-800 mt-2" id="stat-total-vat">0 SAR</h3>
+                            </div>
+                            <div class="p-3 bg-purple-50 rounded-full text-purple-500">
+                                <i class="fas fa-percentage text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-6 border-r-4 border-orange-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500 text-sm font-medium">عدد الشركات</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-2" id="stat-total-companies">0</h3>
+                            </div>
+                            <div class="p-3 bg-orange-50 rounded-full text-orange-500">
+                                <i class="fas fa-building text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">الإيرادات الشهرية</h3>
+                        <canvas id="revenue-chart" height="250"></canvas>
+                    </div>
+                    <div class="card p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">الإيرادات حسب الشركة</h3>
+                        <canvas id="company-chart" height="250"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Invoice Register -->
+            <section id="invoice-register" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">سجل الفواتير</h2>
+                    <button onclick="showSection('create-invoice')" class="btn btn-primary">
+                        <i class="fas fa-plus ml-2"></i> فاتورة جديدة
+                    </button>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="card p-4 mb-6 flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشهر</label>
+                        <select id="invoice-month" class="w-full">
+                            <option value="">كل الأشهر</option>
+                            <option value="01">يناير</option>
+                            <option value="02">فبراير</option>
+                            <option value="03">مارس</option>
+                            <option value="04">أبريل</option>
+                            <option value="05">مايو</option>
+                            <option value="06">يونيو</option>
+                            <option value="07">يوليو</option>
+                            <option value="08">أغسطس</option>
+                            <option value="09">سبتمبر</option>
+                            <option value="10">أكتوبر</option>
+                            <option value="11">نوفمبر</option>
+                            <option value="12">ديسمبر</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">السنة</label>
+                        <select id="invoice-year" class="w-full">
+                            <option value="">كل السنوات</option>
+                            <option value="2030">2030</option>
+                            <option value="2029">2029</option>
+                            <option value="2028">2028</option>
+                            <option value="2027">2027</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
+                        <select id="invoice-filter-company" class="w-full">
+                            <option value="">كل الشركات</option>
+                        </select>
+                    </div>
+                    <button id="filter-button" onclick="loadInvoices()" class="btn btn-primary h-[42px]">
+                        <i class="fas fa-filter ml-2"></i> تصفية
+                    </button>
+                </div>
+
+                <div class="table-container bg-white">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>رقم الفاتورة</th>
+                                <th>التاريخ</th>
+                                <th>الشركة</th>
+                                <th>الإجمالي</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Create Invoice -->
+            <section id="create-invoice" class="section hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">إنشاء فاتورة جديدة</h2>
+                <form id="invoice-form" class="card p-6" onkeydown="return event.key != 'Enter';">
+
+                    <!-- Basic Info -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">الشركة <span
+                                    class="text-red-500">*</span></label>
+                            <select id="invoice-company" class="w-full" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">التاريخ <span
+                                    class="text-red-500">*</span></label>
+                            <input type="date" id="invoice-date" class="w-full" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">نوع الشحنة</label>
+                            <select id="invoice-shipment" class="w-full">
+                                <option value="Import">استيراد</option>
+                                <option value="Export">تصدير</option>
+                                <option value="Transit">ترانزيت</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">المنفذ الجمركي</label>
+                            <input type="text" id="invoice-customs" class="w-full"
+                                placeholder="مثال: ميناء جدة الإسلامي">
+                        </div>
+                    </div>
+
+                    <hr class="border-gray-200 mb-8">
+
+                    <!-- Services Selection -->
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">الخدمات والرسوم</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+
+                        <!-- Clearance -->
+                        <div class="custom-checkbox" id="check-clearance-div" onclick="toggleService('clearance')">
+                            <input type="checkbox" id="check-clearance" onchange="calculateTotals()">
+                            <div class="flex-1 mr-3">
+                                <span class="font-bold block">تخليص جمركي</span>
+                                <span class="text-xs text-gray-500">Customs Clearance</span>
+                            </div>
+                            <input type="number" id="qty-clearance" class="w-16 text-center mx-2 border rounded p-1"
+                                placeholder="1" value="1" min="1" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                            <input type="number" id="val-clearance" class="w-32 text-left border rounded p-1"
+                                placeholder="0.00" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                        </div>
+
+                        <!-- Customs Duties -->
+                        <div class="custom-checkbox" id="check-duties-div" onclick="toggleService('duties')">
+                            <input type="checkbox" id="check-duties" onchange="calculateTotals()">
+                            <div class="flex-1 mr-3">
+                                <span class="font-bold block">رسوم جمركية</span>
+                                <span class="text-xs text-gray-500">Customs Duties</span>
+                            </div>
+                            <input type="number" id="qty-duties" class="w-16 text-center mx-2 border rounded p-1"
+                                placeholder="1" value="1" min="1" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                            <input type="number" id="val-duties" class="w-32 text-left border rounded p-1"
+                                placeholder="0.00" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                        </div>
+
+                        <!-- Appointment -->
+                        <div class="custom-checkbox" id="check-appointment-div" onclick="toggleService('appointment')">
+                            <input type="checkbox" id="check-appointment" onchange="calculateTotals()">
+                            <div class="flex-1 mr-3">
+                                <span class="font-bold block">حجز موعد</span>
+                                <span class="text-xs text-gray-500">Appointment Booking</span>
+                            </div>
+                            <input type="number" id="qty-appointment" class="w-16 text-center mx-2 border rounded p-1"
+                                placeholder="1" value="1" min="1" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                            <input type="number" id="val-appointment" class="w-32 text-left border rounded p-1"
+                                placeholder="0.00" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                        </div>
+
+                        <!-- Saber -->
+                        <div class="custom-checkbox" id="check-saber-div" onclick="toggleService('saber')">
+                            <input type="checkbox" id="check-saber" onchange="calculateTotals()">
+                            <div class="flex-1 mr-3">
+                                <span class="font-bold block">سابر</span>
+                                <span class="text-xs text-gray-500">Saber</span>
+                            </div>
+                            <input type="number" id="qty-saber" class="w-16 text-center mx-2 border rounded p-1"
+                                placeholder="1" value="1" min="1" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                            <input type="number" id="val-saber" class="w-32 text-left border rounded p-1"
+                                placeholder="0.00" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                        </div>
+
+                        <!-- Loading/Unloading -->
+                        <div class="custom-checkbox" id="check-loading-div" onclick="toggleService('loading')">
+                            <input type="checkbox" id="check-loading" onchange="calculateTotals()">
+                            <div class="flex-1 mr-3">
+                                <span class="font-bold block">تفريغ وتحميل</span>
+                                <span class="text-xs text-gray-500">Loading / Unloading</span>
+                            </div>
+                            <input type="number" id="qty-loading" class="w-16 text-center mx-2 border rounded p-1"
+                                placeholder="1" value="1" min="1" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                            <input type="number" id="val-loading" class="w-32 text-left border rounded p-1"
+                                placeholder="0.00" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                        </div>
+
+                        <!-- Insurance -->
+                        <div class="custom-checkbox" id="check-insurance-div" onclick="toggleService('insurance')">
+                            <input type="checkbox" id="check-insurance" onchange="calculateTotals()">
+                            <div class="flex-1 mr-3">
+                                <span class="font-bold block">تأمين</span>
+                                <span class="text-xs text-gray-500">Insurance</span>
+                            </div>
+                            <input type="number" id="qty-insurance" class="w-16 text-center mx-2 border rounded p-1"
+                                placeholder="1" value="1" min="1" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                            <input type="number" id="val-insurance" class="w-32 text-left border rounded p-1"
+                                placeholder="0.00" disabled onclick="event.stopPropagation()"
+                                onchange="calculateTotals()">
+                        </div>
+                    </div>
+
+                    <!-- Other Items -->
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">بنود أخرى</h3>
+                    <table class="min-w-full mb-6 text-right">
+                        <thead>
+                            <tr>
+                                <th class="w-1/2">الخدمة</th>
+                                <th class="w-24">الكمية</th>
+                                <th class="w-32">المبلغ</th>
+                                <th class="w-16 text-center">حذف</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-items-other"></tbody>
+                    </table>
+                    <button type="button" onclick="addOtherItem()" class="btn btn-success text-sm mb-6">
+                        <i class="fas fa-plus ml-2"></i> إضافة بند آخر
+                    </button>
+
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">ملاحظات</label>
+                        <textarea id="invoice-notes" class="w-full" rows="3"></textarea>
+                    </div>
+
+                    <!-- Totals -->
+                    <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                        <div class="flex justify-between mb-2 text-gray-600">
+                            <span>الإجمالي قبل الضريبة:</span>
+                            <span id="total-before-tax" class="font-mono font-bold">0.00</span>
+                        </div>
+                        <div class="flex justify-between mb-2 text-gray-600">
+                            <span>ضريبة القيمة المضافة (15%):</span>
+                            <span id="vat-amount" class="font-mono font-bold">0.00</span>
+                        </div>
+                        <div class="flex justify-between pt-4 border-t border-gray-300 text-xl font-bold text-gray-900">
+                            <span>الإجمالي النهائي:</span>
+                            <span id="total-after-tax" class="font-mono">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex justify-end gap-4 mt-8">
+                        <button type="button" onclick="saveInvoice('Draft')"
+                            class="btn bg-gray-500 text-white hover:bg-gray-600">
+                            <i class="fas fa-save ml-2"></i> حفظ مسودة
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check-circle ml-2"></i> حفظ وإصدار
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Tax Register -->
+            <section id="tax-register" class="section hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">السجل الضريبي</h2>
+                <div class="card p-4 mb-6 flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشهر</label>
+                        <select id="tax-month" class="w-full">
+                            <option value="">كل الأشهر</option>
+                            <option value="01">يناير</option>
+                            <option value="02">فبراير</option>
+                            <option value="03">مارس</option>
+                            <option value="04">أبريل</option>
+                            <option value="05">مايو</option>
+                            <option value="06">يونيو</option>
+                            <option value="07">يوليو</option>
+                            <option value="08">أغسطس</option>
+                            <option value="09">سبتمبر</option>
+                            <option value="10">أكتوبر</option>
+                            <option value="11">نوفمبر</option>
+                            <option value="12">ديسمبر</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">السنة</label>
+                        <select id="tax-year" class="w-full">
+                            <option value="">كل السنوات</option>
+                            <option value="2030">2030</option>
+                            <option value="2029">2029</option>
+                            <option value="2028">2028</option>
+                            <option value="2027">2027</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
+                        <select id="tax-company" class="w-full">
+                            <option value="">كل الشركات</option>
+                        </select>
+                    </div>
+                    <button onclick="loadTaxRegister()" class="btn btn-primary h-[42px]">
+                        <i class="fas fa-filter ml-2"></i> تصفية
+                    </button>
+                    <button onclick="printTaxRegister()" class="btn bg-gray-600 text-white hover:bg-gray-700 h-[42px]">
+                        <i class="fas fa-print ml-2"></i> طباعة
+                    </button>
+                    <!-- <button onclick="sendToZatcaBatch()"
+                        class="btn bg-purple-600 text-white hover:bg-purple-700 h-[42px]">
+                        <i class="fas fa-paper-plane ml-2"></i> إرسال للهيئة
+                    </button> -->
+                </div>
+                <div class="table-container bg-white">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>الشركة</th>
+                                <th>قبل الضريبة</th>
+                                <th>الضريبة</th>
+                                <th>الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tax-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Companies -->
+            <section id="companies" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">الشركات</h2>
+                    <button onclick="showAddCompanyModal()" class="btn btn-success">
+                        <i class="fas fa-plus ml-2"></i> إضافة شركة
+                    </button>
+                </div>
+                <div class="table-container bg-white">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>الاسم</th>
+                                <th>الرقم الضريبي</th>
+                                <th>المسؤول</th>
+                                <th>الهاتف</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="company-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Bonds -->
+            <section id="bonds" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">السندات</h2>
+                    <button onclick="showAddBondModal()" class="btn btn-success">
+                        <i class="fas fa-plus ml-2"></i> إضافة سند
+                    </button>
+                </div>
+                <div class="table-container bg-white">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>الشركة</th>
+                                <th>النوع</th>
+                                <th>المبلغ</th>
+                                <th>ملاحظات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bond-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Profile -->
+            <section id="profile" class="section hidden">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">الإعدادات</h2>
+
+                <!-- User Settings -->
+                <div class="card p-6 mb-8">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">بيانات الدخول</h3>
+                    <form id="user-settings-form">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">اسم المستخدم</label>
+                                <input type="text" id="user-username" class="w-full" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">كلمة المرور الجديدة</label>
+                                <input type="text" id="user-password" class="w-full" required>
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-key ml-2"></i> تحديث بيانات الدخول
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Company Settings (Hidden as per request) -->
+                <div class="card p-6 hidden">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">بيانات الشركة (للفواتير)</h3>
+                    <form id="profile-form">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">اسم الشركة (عربي)</label>
+                                <input type="text" id="profile-company-ar" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">اسم الشركة (English)</label>
+                                <input type="text" id="profile-company-en" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">الرقم الضريبي</label>
+                                <input type="text" id="profile-vat" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">رقم الحساب البنكي</label>
+                                <input type="text" id="profile-bank" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">رقم الهاتف</label>
+                                <input type="text" id="profile-phone" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">البريد الإلكتروني</label>
+                                <input type="email" id="profile-email" class="w-full">
+                            </div>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">العنوان</label>
+                            <textarea id="profile-address" class="w-full" rows="2"></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">شعار الشركة (Logo URL)</label>
+                                <input type="text" id="profile-logo" class="w-full"
+                                    placeholder="https://example.com/logo.png">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">ختم الشركة (Stamp URL)</label>
+                                <input type="text" id="profile-stamp" class="w-full"
+                                    placeholder="https://example.com/stamp.png">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save ml-2"></i> حفظ إعدادات الشركة
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Print View Container -->
+    <div id="print-view" class="print-only p-8"></div>
+
+    <!-- Company Modal -->
+    <div id="company-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold">إضافة / تعديل شركة</h3>
+                <button onclick="closeModal('company-modal')" class="text-gray-500 hover:text-gray-700"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <form id="company-form" class="p-4">
+                <input type="hidden" id="company-id">
+                <div class="space-y-4">
+                    <input type="text" id="company-name" placeholder="اسم الشركة" class="w-full" required>
+                    <input type="text" id="company-vat" placeholder="الرقم الضريبي" class="w-full">
+                    <input type="text" id="company-contact" placeholder="المسؤول" class="w-full">
+                    <input type="text" id="company-phone" placeholder="الهاتف" class="w-full">
+                    <input type="text" id="company-address" placeholder="العنوان" class="w-full">
+                    <input type="text" id="company-bank" placeholder="الحساب البنكي" class="w-full">
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="closeModal('company-modal')"
+                        class="btn bg-gray-500 text-white hover:bg-gray-600">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bond Modal -->
+    <div id="bond-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold">إضافة سند</h3>
+                <button onclick="closeModal('bond-modal')" class="text-gray-500 hover:text-gray-700"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <form id="bond-form" class="p-4">
+                <div class="space-y-4">
+                    <select id="bond-company" class="w-full" required></select>
+                    <select id="bond-type" class="w-full">
+                        <option value="receipt">سند قبض</option>
+                        <option value="payment">سند صرف</option>
+                    </select>
+                    <input type="number" id="bond-amount" placeholder="المبلغ" class="w-full" required>
+                    <input type="date" id="bond-date" class="w-full" required>
+                    <textarea id="bond-notes" placeholder="ملاحظات" class="w-full"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="closeModal('bond-modal')"
+                        class="btn bg-gray-500 text-white hover:bg-gray-600">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/main.js?v=2"></script>
+</body>
+
+</html>

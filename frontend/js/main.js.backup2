@@ -1,0 +1,593 @@
+// Main ERP Logic
+
+// --- Global State & Navigation ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Set current date
+    const dateEl = document.getElementById('current-date');
+    const now = new Date();
+    if (dateEl) {
+        dateEl.textContent = now.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    // Set default dashboard filters to current month/year
+    const monthSelect = document.getElementById('dash-month');
+    const yearSelect = document.getElementById('dash-year');
+    if (monthSelect && yearSelect) {
+        monthSelect.value = (now.getMonth() + 1).toString().padStart(2, '0');
+        yearSelect.value = now.getFullYear().toString();
+    }
+
+    // Initial Load
+    showSection('dashboard');
+
+    // Close sidebar when clicking outside on mobile
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', toggleSidebar);
+    }
+});
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    if (sidebar.classList.contains('translate-x-full')) {
+        // Open
+        sidebar.classList.remove('translate-x-full');
+        overlay.classList.remove('hidden');
+    } else {
+        // Close
+        sidebar.classList.add('translate-x-full');
+        overlay.classList.add('hidden');
+    }
+}
+
+function showSection(id) {
+    // Hide all sections
+    document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+    // Show target section
+    document.getElementById(id).classList.remove('hidden');
+
+    // Update active link in sidebar
+    document.querySelectorAll('aside a').forEach(a => a.classList.remove('active', 'bg-gray-800'));
+    const activeLink = document.querySelector(`aside a[onclick="showSection('${id}')"]`);
+    if (activeLink) activeLink.classList.add('active', 'bg-gray-800');
+
+    // Close sidebar on mobile after selection
+    if (window.innerWidth < 1024) {
+        toggleSidebar();
+    }
+
+    // Load data based on section
+    if (id === 'invoice-register') loadInvoices();
+    if (id === 'companies') loadCompanies();
+    if (id === 'bonds') loadBonds();
+    if (id === 'create-invoice') initCreateInvoice();
+    if (id === 'tax-register') loadTaxRegister();
+    if (id === 'profile') loadProfile();
+    if (id === 'dashboard') loadDashboard();
+}
+
+// --- Auth ---
+async function logout() {
+    if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+        await fetch('/auth/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+    }
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+    const month = document.getElementById('dash-month').value;
+    const year = document.getElementById('dash-year').value;
+    const companyId = document.getElementById('dash-company').value;
+
+    const params = new URLSearchParams();
+    if (month && year) {
+        const startDate = `${year}-${month}-01`;
+        const endDate = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
+        params.append('startDate', startDate);
+        params.append('endDate', endDate);
+    }
+    if (companyId) params.append('companyId', companyId);
+
+    try {
+        const res = await fetch(`/api/dashboard?${params}`);
+        const data = await res.json();
+
+        // Update Stats
+        animateValue('stat-total-invoices', data.stats.total_invoices);
+        document.getElementById('stat-total-revenue').textContent = formatCurrency(data.stats.total_revenue);
+        document.getElementById('stat-total-vat').textContent = formatCurrency(data.stats.total_vat);
+        animateValue('stat-total-companies', data.stats.total_companies);
+
+        // Update Charts
+        renderCharts(data);
+
+        // Load companies for filter if empty
+        if (document.getElementById('dash-company').options.length <= 1) {
+            loadCompanyOptions('dash-company');
+        }
+    } catch (err) {
+        console.error('Dashboard error:', err);
+    }
+}
+
+function animateValue(id, end) {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    const start = 0;
+    const duration = 1000;
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.innerHTML = Math.floor(progress * (end - start) + start);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+let revenueChart = null;
+let companyChart = null;
+
+function renderCharts(data) {
+    // Revenue Chart
+    const ctx1 = document.getElementById('revenue-chart').getContext('2d');
+    if (revenueChart) revenueChart.destroy();
+    revenueChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: data.monthly_revenue.map(d => d.month),
+            datasets: [{
+                label: 'الإيرادات',
+                data: data.monthly_revenue.map(d => d.revenue),
+                borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    // Company Chart
+    const ctx2 = document.getElementById('company-chart').getContext('2d');
+    if (companyChart) companyChart.destroy();
+    companyChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: data.company_revenue.map(d => d.company_name),
+            datasets: [{
+                data: data.company_revenue.map(d => d.revenue),
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+            }]
+        },
+        options: { responsive: true }
+    });
+}
+
+// --- Invoices ---
+
+async function loadInvoices() {
+    const start = document.getElementById('invoice-start').value;
+    const end = document.getElementById('invoice-end').value;
+    const companyId = document.getElementById('invoice-filter-company').value;
+
+    const params = new URLSearchParams();
+    if (start) params.append('startDate', start);
+    if (end) params.append('endDate', end);
+    if (companyId) params.append('companyId', companyId);
+
+    const res = await fetch(`/api/invoices?${params}`);
+    const invoices = await res.json();
+
+    const tbody = document.getElementById('invoice-list');
+    tbody.innerHTML = invoices.map(inv => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td><span class="font-mono font-bold text-blue-600">#${inv.id}</span></td>
+            <td>${inv.date}</td>
+            <td>${inv.company_name}</td>
+            <td class="font-bold">${formatCurrency(inv.total_after_tax)}</td>
+            <td>
+                <span class="px-2 py-1 rounded-full text-xs font-bold ${inv.status === 'Final' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                    ${inv.status === 'Final' ? 'نهائي' : 'مسودة'}
+                </span>
+            </td>
+            <td>
+                <div class="flex gap-2">
+                    <button onclick="viewInvoice(${inv.id})" class="text-blue-600 hover:text-blue-800" title="عرض"><i class="fas fa-eye"></i></button>
+                    <button onclick="editInvoice(${inv.id})" class="text-yellow-600 hover:text-yellow-800" title="تعديل"><i class="fas fa-edit"></i></button>
+                    <button onclick="shareInvoice(${inv.id}, '${escapeHtml(inv.company_name)}', ${inv.total_after_tax})" class="text-green-600 hover:text-green-800" title="مشاركة"><i class="fas fa-share-alt"></i></button>
+                    <button onclick="deleteInvoice(${inv.id})" class="text-red-600 hover:text-red-800" title="حذف"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+
+    if (document.getElementById('invoice-filter-company').options.length <= 1) {
+        loadCompanyOptions('invoice-filter-company');
+    }
+}
+                }, 500);
+            }, 500);
+        }, 100);
+    } catch (err) {
+    console.error('View Invoice Error:', err);
+    alert('حدث خطأ أثناء عرض الفاتورة');
+}
+}
+
+function shareInvoice(id, companyName, total) {
+    const url = `${window.location.origin}/invoices/${id}`; // Assuming a public view exists or just text
+    const text = `فاتورة جديدة من ${companyName}\nرقم: #${id}\nالإجمالي: ${total} ريال`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: `فاتورة #${id}`,
+            text: text,
+            url: window.location.href
+        }).catch(console.error);
+    } else {
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_blank');
+    }
+}
+
+// --- Companies & Bonds (Simplified for brevity, similar logic) ---
+
+async function loadCompanies() {
+    const res = await fetch('/api/companies');
+    const companies = await res.json();
+    const tbody = document.getElementById('company-list');
+    tbody.innerHTML = companies.map(c => `
+        <tr>
+            <td>${c.name}</td>
+            <td>${c.vat_number}</td>
+            <td>${c.contact_person}</td>
+            <td>${c.phone}</td>
+            <td>
+                <button onclick="editCompany(${c.id})" class="text-blue-600 hover:text-blue-800 mr-2"><i class="fas fa-edit"></i></button>
+                <button onclick="deleteCompany(${c.id})" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function loadCompanyOptions(selectId) {
+    const res = await fetch('/api/companies');
+    const companies = await res.json();
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const currentVal = select.value;
+    // Keep first option if it's "All Companies"
+    const firstOpt = select.options[0] ? select.options[0].outerHTML : '';
+    const isFilter = selectId.includes('filter') || selectId.includes('dash');
+
+    select.innerHTML = (isFilter ? firstOpt : '<option value="" disabled selected>اختر الشركة</option>') +
+        companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+    if (currentVal) select.value = currentVal;
+}
+
+function showAddCompanyModal() {
+    document.getElementById('company-form').reset();
+    document.getElementById('company-id').value = '';
+    document.getElementById('company-modal').classList.remove('hidden');
+    document.getElementById('company-modal').classList.add('flex');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    document.getElementById(id).classList.remove('flex');
+}
+
+document.getElementById('company-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // ... (Implementation similar to previous, using fetch)
+    const id = document.getElementById('company-id').value;
+    const data = {
+        name: document.getElementById('company-name').value,
+        vat_number: document.getElementById('company-vat').value,
+        contact_person: document.getElementById('company-contact').value,
+        phone: document.getElementById('company-phone').value,
+        address: document.getElementById('company-address').value,
+        bank_account: document.getElementById('company-bank').value
+    };
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/companies/${id}` : '/api/companies';
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    closeModal('company-modal');
+    loadCompanies();
+
+    // Refresh all company dropdowns
+    ['invoice-company', 'invoice-filter-company', 'dash-company', 'tax-company', 'bond-company'].forEach(id => {
+        loadCompanyOptions(id);
+    });
+});
+
+async function deleteCompany(id) {
+    if (confirm('حذف الشركة؟')) {
+        await fetch(`/api/companies/${id}`, { method: 'DELETE' });
+        loadCompanies();
+    }
+}
+
+async function editCompany(id) {
+    const res = await fetch('/api/companies');
+    const companies = await res.json();
+    const c = companies.find(x => x.id === id);
+    if (c) {
+        document.getElementById('company-id').value = c.id;
+        document.getElementById('company-name').value = c.name;
+        document.getElementById('company-vat').value = c.vat_number;
+        document.getElementById('company-contact').value = c.contact_person;
+        document.getElementById('company-phone').value = c.phone;
+        document.getElementById('company-address').value = c.address;
+        document.getElementById('company-bank').value = c.bank_account;
+        document.getElementById('company-modal').classList.remove('hidden');
+        document.getElementById('company-modal').classList.add('flex');
+    }
+}
+
+// --- Tax Register ---
+async function loadTaxRegister() {
+    const start = document.getElementById('tax-start').value;
+    const end = document.getElementById('tax-end').value;
+    const company = document.getElementById('tax-company').value;
+    const params = new URLSearchParams();
+    if (start) params.append('startDate', start);
+    if (end) params.append('endDate', end);
+    if (company) params.append('companyId', company);
+
+    const res = await fetch(`/api/tax-register?${params}`);
+    const rows = await res.json();
+    document.getElementById('tax-list').innerHTML = rows.map(r => `
+        <tr>
+            <td>${r.date}</td>
+            <td>${r.company_name}</td>
+            <td>${formatCurrency(r.total_before_tax)}</td>
+            <td>${formatCurrency(r.vat_amount)}</td>
+            <td>${formatCurrency(r.total_after_tax)}</td>
+        </tr>
+    `).join('');
+
+    if (document.getElementById('tax-company').options.length <= 1) {
+        loadCompanyOptions('tax-company');
+    }
+}
+
+async function printTaxRegister() {
+    const start = document.getElementById('tax-start').value;
+    const end = document.getElementById('tax-end').value;
+    const companyId = document.getElementById('tax-company').value;
+
+    const params = new URLSearchParams();
+    if (start) params.append('startDate', start);
+    if (end) params.append('endDate', end);
+    if (companyId) params.append('companyId', companyId);
+
+    const res = await fetch(`/api/tax-register?${params}`);
+    const rows = await res.json();
+
+    const settingsRes = await fetch('/api/settings');
+    const settings = await settingsRes.json();
+
+    // Calculate Period Title
+    let periodTitle = 'تقرير شامل';
+    if (start) {
+        const date = new Date(start);
+        // Arabic Month Name
+        const monthName = date.toLocaleDateString('ar-SA', { month: 'long' });
+        const year = date.getFullYear();
+        periodTitle = `تقرير شهر ${monthName} ${year}`;
+
+        // If it's a specific range not matching a full month, show range
+        if (end) {
+            const endDateObj = new Date(end);
+            if (date.getMonth() !== endDateObj.getMonth() || date.getFullYear() !== endDateObj.getFullYear()) {
+                periodTitle = `تقرير الفترة من ${start} إلى ${end}`;
+            }
+        }
+    }
+
+    // Totals
+    let totalBefore = 0;
+    let totalVat = 0;
+    let totalAfter = 0;
+    rows.forEach(r => {
+        totalBefore += r.total_before_tax || 0;
+        totalVat += r.vat_amount || 0;
+        totalAfter += r.total_after_tax || 0;
+    });
+
+    const printView = document.getElementById('print-view');
+    printView.innerHTML = `
+        <div class="max-w-4xl mx-auto bg-white p-8" style="direction: rtl; font-family: 'Segoe UI', sans-serif;">
+            <!-- Header -->
+            <div class="flex justify-between items-center border-b-2 border-gray-800 pb-6 mb-6">
+                <div class="text-right w-1/3">
+                    <h1 class="text-2xl font-bold text-gray-800">${settings.company_name_ar || 'اسم الشركة'}</h1>
+                    <p class="text-gray-600 mt-1">الرقم الضريبي: ${settings.vat_number || '-'}</p>
+                </div>
+                <div class="text-center w-1/3">
+                    <h2 class="text-xl font-bold border-2 border-gray-800 px-6 py-2 inline-block rounded-lg">السجل الضريبي</h2>
+                    <p class="text-lg font-bold text-blue-600 mt-3">${periodTitle}</p>
+                </div>
+                <div class="text-left w-1/3" style="direction: ltr;">
+                    <h1 class="text-xl font-bold text-gray-800">${settings.company_name_en || 'Company Name'}</h1>
+                    <p class="text-gray-600 mt-1">VAT No: ${settings.vat_number || '-'}</p>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <table class="w-full mb-8 border-collapse text-sm">
+                <thead>
+                    <tr class="bg-gray-100 border-b-2 border-gray-300">
+                        <th class="p-3 text-right border">التاريخ</th>
+                        <th class="p-3 text-right border">الشركة</th>
+                        <th class="p-3 text-center border">رقم الفاتورة</th>
+                        <th class="p-3 text-left border">المبلغ (غير شامل)</th>
+                        <th class="p-3 text-left border">الضريبة (15%)</th>
+                        <th class="p-3 text-left border">الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(r => `
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="p-3 border">${r.date}</td>
+                        <td class="p-3 border font-bold">${r.company_name}</td>
+                        <td class="p-3 border text-center font-mono">#${r.id}</td>
+                        <td class="p-3 border text-left font-mono">${formatCurrency(r.total_before_tax)}</td>
+                        <td class="p-3 border text-left font-mono text-red-600">${formatCurrency(r.vat_amount)}</td>
+                        <td class="p-3 border text-left font-mono font-bold">${formatCurrency(r.total_after_tax)}</td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+                <tfoot class="bg-gray-100 font-bold border-t-2 border-gray-300">
+                    <tr>
+                        <td colspan="3" class="p-3 text-center border">الإجمالي الكلي</td>
+                        <td class="p-3 text-left border font-mono">${formatCurrency(totalBefore)}</td>
+                        <td class="p-3 text-left border font-mono text-red-600">${formatCurrency(totalVat)}</td>
+                        <td class="p-3 text-left border font-mono">${formatCurrency(totalAfter)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="flex justify-between items-end mt-12 pt-6 border-t border-gray-200 text-xs text-gray-500">
+                <div>
+                    <p>تم استخراج هذا التقرير بتاريخ ${new Date().toLocaleDateString('ar-SA')}</p>
+                </div>
+                ${settings.stamp_path ? `<img src="${settings.stamp_path}" class="h-20 object-contain opacity-80">` : ''}
+            </div>
+        </div>
+    `;
+
+    // Print Logic
+    document.getElementById('main-content').classList.add('hidden');
+    document.getElementById('sidebar').classList.add('hidden');
+    document.getElementById('print-view').classList.remove('print-only');
+
+    setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+            document.getElementById('print-view').classList.add('print-only');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+        }, 500);
+    }, 500);
+}
+
+function sendToZatcaBatch() {
+    alert('جاري الاتصال بهيئة الزكاة والضريبة والجمارك...\n(هذه الميزة تتطلب شهادة CSR ومفتاح خاص)');
+}
+
+// --- Settings ---
+async function loadProfile() {
+    const res = await fetch('/api/settings');
+    const s = await res.json();
+    document.getElementById('profile-company-ar').value = s.company_name_ar || '';
+    document.getElementById('profile-company-en').value = s.company_name_en || '';
+    document.getElementById('profile-vat').value = s.vat_number || '';
+    document.getElementById('profile-bank').value = s.bank_account || '';
+    document.getElementById('profile-phone').value = s.phone || '';
+    document.getElementById('profile-email').value = s.email || '';
+    document.getElementById('profile-address').value = s.address || '';
+    document.getElementById('profile-logo').value = s.logo_path || '';
+    document.getElementById('profile-stamp').value = s.stamp_path || '';
+}
+
+document.getElementById('profile-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        company_name_ar: document.getElementById('profile-company-ar').value,
+        company_name_en: document.getElementById('profile-company-en').value,
+        vat_number: document.getElementById('profile-vat').value,
+        bank_account: document.getElementById('profile-bank').value,
+        phone: document.getElementById('profile-phone').value,
+        email: document.getElementById('profile-email').value,
+        address: document.getElementById('profile-address').value,
+        logo_path: document.getElementById('profile-logo').value,
+        stamp_path: document.getElementById('profile-stamp').value
+    };
+    await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    alert('تم حفظ الإعدادات');
+});
+
+// --- Helpers ---
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-SA', { style: 'currency', currency: 'SAR' }).format(amount);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// --- Bonds ---
+
+async function loadBonds() {
+    const res = await fetch('/api/bonds');
+    const bonds = await res.json();
+    const tbody = document.getElementById('bond-list');
+    tbody.innerHTML = bonds.map(b => `
+        <tr>
+            <td>${b.date}</td>
+            <td>${b.company_name}</td>
+            <td>
+                <span class="px-2 py-1 rounded-full text-xs font-bold ${b.type === 'receipt' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                    ${b.type === 'receipt' ? 'سند قبض' : 'سند صرف'}
+                </span>
+            </td>
+            <td class="font-bold">${formatCurrency(b.amount)}</td>
+            <td>${b.notes || '-'}</td>
+        </tr>
+    `).join('');
+}
+
+function showAddBondModal() {
+    document.getElementById('bond-form').reset();
+    loadCompanyOptions('bond-company');
+    document.getElementById('bond-date').valueAsDate = new Date();
+    document.getElementById('bond-modal').classList.remove('hidden');
+    document.getElementById('bond-modal').classList.add('flex');
+}
+
+document.getElementById('bond-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        company_id: document.getElementById('bond-company').value,
+        type: document.getElementById('bond-type').value,
+        amount: document.getElementById('bond-amount').value,
+        date: document.getElementById('bond-date').value,
+        notes: document.getElementById('bond-notes').value
+    };
+
+    try {
+        const res = await fetch('/api/bonds', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            alert('تم حفظ السند بنجاح');
+            closeModal('bond-modal');
+            loadBonds();
+        } else {
+            alert('حدث خطأ أثناء الحفظ');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('خطأ في الاتصال');
+    }
+});
+
