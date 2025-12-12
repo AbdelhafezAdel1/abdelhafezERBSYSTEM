@@ -11,7 +11,20 @@ const app = express();
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({ secret: process.env.SESSION_SECRET || 'secret-key', resave: false, saveUninitialized: true }));
+
+// Configure session for production
+app.set('trust proxy', 1); // Trust first proxy (Render)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'secret-key',
+    resave: false,
+    saveUninitialized: false, // Changed to false for better security
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
