@@ -13,14 +13,16 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Configure session for production
+const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
 app.use(session({
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // Set to false - Render handles HTTPS externally
+        secure: isProduction, // true in production (HTTPS), false in development
         httpOnly: true,
+        sameSite: 'lax', // Prevents CSRF while allowing normal link navigation
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
@@ -384,8 +386,8 @@ app.get('/', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Catch all other frontend routes - require auth
-app.get('*', (req, res, next) => {
+// Catch all other frontend routes - require auth (using middleware instead of wildcard)
+app.use((req, res, next) => {
     // Skip API routes
     if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
         return next();

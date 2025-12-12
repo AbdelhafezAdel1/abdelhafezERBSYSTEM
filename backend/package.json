@@ -4,7 +4,7 @@
   "description": "ERP System for Customs Clearance Management with ZATCA Integration",
   "main": "app_pg.js",
   "scripts": {
-    "start": "node app_pg.js",
+    "start": "NODE_ENV=production node app_pg.js",
     "dev": "node app_pg.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
