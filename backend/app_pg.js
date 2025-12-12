@@ -343,5 +343,19 @@ app.put('/api/settings', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+// ---------- Serve Frontend ----------
+// Login page
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/login.html'));
+});
+
+// Protected root route
+app.get('/', (req, res) => {
+    if (!req.session.userId) {
+        return res.redirect('/login.html');
+    }
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+const PORT = process.env.PORT || 3100;
 app.listen(PORT, () => console.log(`PostgreSQL Server running on http://localhost:${PORT}`));
