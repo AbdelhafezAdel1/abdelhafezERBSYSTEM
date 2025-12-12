@@ -17,15 +17,27 @@ app.set('trust proxy', 1); // Trust first proxy (Render)
 app.use(session({
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
-    saveUninitialized: false, // Changed to false for better security
+    saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+        secure: false, // Set to false - Render handles HTTPS externally
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
 
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Authentication middleware - protect index.html
+const requireAuth = (req, res, next) => {
+    if (req.session && req.session.userId) {
+        return next();
+    }
+    res.redirect('/login.html');
+};
+
+// Serve login page without auth
+app.use('/login.html', express.static(path.join(__dirname, '../frontend/login.html')));
+app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
+app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
+app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
 app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
 // Helper: ZATCA TLV QR generator
@@ -357,17 +369,36 @@ app.put('/api/settings', async (req, res) => {
 });
 
 // ---------- Serve Frontend ----------
-// Login page
+// Login page (public)
 app.get('/login.html', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 
+// Protected index.html - block direct access
+app.get('/index.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
 // Protected root route
-app.get('/', (req, res) => {
-    if (!req.session.userId) {
+app.get('/', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+// Catch all other frontend routes - require auth
+app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+        return next();
+    }
+    // Skip public assets
+    if (req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/images') || req.path.startsWith('/pic') || req.path === '/login.html') {
+        return next();
+    }
+    // Require auth for everything else
+    if (!req.session || !req.session.userId) {
         return res.redirect('/login.html');
     }
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    next();
 });
 
 const PORT = process.env.PORT || 3100;
