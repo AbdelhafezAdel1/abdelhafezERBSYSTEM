@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Dependencies
 node_modules/
 package-lock.json
@@ -27,11 +26,3 @@ Thumbs.db
 *.tmp
 *.temp
 data_exports/
-=======
-node_modules/
-
-.DS_Store
-*.db
-*.log
-logs/
->>>>>>> 626ecf820640248e4b9bf87ba8c75e56c248494b

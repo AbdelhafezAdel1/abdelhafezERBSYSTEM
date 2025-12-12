@@ -1,14 +1,25 @@
 {
-  "name": "erb-root",
+  "name": "erb-system",
   "version": "1.0.0",
-  "description": "ERP System - Root directory",
+  "description": "ERP System for Customs Clearance Management with ZATCA Integration",
+  "main": "backend/app_pg.js",
   "private": true,
   "scripts": {
-    "postinstall": "cd backend && npm install",
-    "start": "cd backend && npm start",
-    "install-all": "cd backend && npm install"
+    "build": "cd backend && npm install",
+    "start": "cd backend && node app_pg.js",
+    "dev": "cd backend && node app_pg.js"
   },
-  "keywords": [],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "erp",
+    "customs",
+    "zatca",
+    "invoicing",
+    "saudi-arabia"
+  ],
   "author": "Abdelhafez Adel",
   "license": "MIT"
 }
