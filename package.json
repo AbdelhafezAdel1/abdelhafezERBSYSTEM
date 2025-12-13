@@ -5,7 +5,7 @@
   "main": "backend/app_pg.js",
   "private": true,
   "scripts": {
-    "build": "cd backend && npm install",
+    "build": "npm install && cd backend && npm install",
     "start": "cd backend && node app_pg.js",
     "dev": "cd backend && node app_pg.js",
     "postinstall": "cd backend && npm install"
