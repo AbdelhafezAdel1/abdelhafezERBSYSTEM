@@ -70,15 +70,21 @@ app.use('/api/tax-register', taxRegisterRoutes);
 // ---------- Auth ----------
 app.post('/auth/login', async (req, res) => {
     const { username, password } = req.body;
+    console.log('Login attempt:', { username, password }); // Debug log
     try {
         const result = await db.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
+        console.log('Query result rows:', result.rows.length); // Debug log
         if (result.rows.length > 0) {
             req.session.userId = result.rows[0].id;
             res.json({ success: true });
         } else {
+            // Check if user exists at all
+            const userCheck = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+            console.log('User exists:', userCheck.rows.length > 0, 'Password in DB:', userCheck.rows[0]?.password); // Debug log
             res.status(401).json({ error: 'Invalid credentials' });
         }
     } catch (err) {
+        console.error('Login error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
