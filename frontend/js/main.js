@@ -1083,8 +1083,10 @@ async function viewInvoice(id) {
         closeBtn.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-2 rounded-lg shadow-lg no-print z-50 hover:bg-red-700 transition-colors font-bold flex items-center gap-2';
         closeBtn.innerHTML = '<i class="fas fa-times"></i> إغلاق';
         closeBtn.onclick = () => {
-            document.getElementById('print-view').classList.add('print-only');
-            document.getElementById('print-view').innerHTML = '';
+            const printViewEl = document.getElementById('print-view');
+            printViewEl.classList.add('print-only');
+            printViewEl.classList.remove('h-screen', 'overflow-y-auto');
+            printViewEl.innerHTML = '';
             document.getElementById('main-content').classList.remove('hidden');
             document.getElementById('sidebar').classList.remove('hidden');
         };
