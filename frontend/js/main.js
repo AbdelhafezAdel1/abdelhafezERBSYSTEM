@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    ['dash', 'invoice', 'tax'].forEach(setDefaults);
+    ['dash', 'invoice'].forEach(setDefaults);
 
     // Initial Load
     showSection('dashboard');
@@ -608,21 +608,13 @@ async function editCompany(id) {
 
 // --- Tax Register ---
 async function loadTaxRegister() {
-    const month = document.getElementById('tax-month').value;
-    const year = document.getElementById('tax-year').value;
+    const startDate = document.getElementById('tax-start-date').value;
+    const endDate = document.getElementById('tax-end-date').value;
     const company = document.getElementById('tax-company').value;
     const params = new URLSearchParams();
 
-    if (month && year) {
-        const startDate = `${year}-${month}-01`;
-        const endDate = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
-        params.append('startDate', startDate);
-        params.append('endDate', endDate);
-    } else if (year) {
-        params.append('startDate', `${year}-01-01`);
-        params.append('endDate', `${year}-12-31`);
-    }
-
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
     if (company) params.append('companyId', company);
 
     const res = await fetch(`/api/tax-register?${params}`);
@@ -651,26 +643,16 @@ async function loadTaxRegister() {
 }
 
 async function printTaxRegister() {
-    const month = document.getElementById('tax-month').value;
-    const year = document.getElementById('tax-year').value;
+    const startDate = document.getElementById('tax-start-date').value;
+    const endDate = document.getElementById('tax-end-date').value;
     const companyId = document.getElementById('tax-company').value;
 
     const params = new URLSearchParams();
-    let start = null;
-    let end = null;
+    let start = startDate || null;
+    let end = endDate || null;
 
-    if (month && year) {
-        start = `${year}-${month}-01`;
-        end = `${year}-${month}-${new Date(year, month, 0).getDate()}`;
-        params.append('startDate', start);
-        params.append('endDate', end);
-    } else if (year) {
-        start = `${year}-01-01`;
-        end = `${year}-12-31`;
-        params.append('startDate', start);
-        params.append('endDate', end);
-    }
-
+    if (start) params.append('startDate', start);
+    if (end) params.append('endDate', end);
     if (companyId) params.append('companyId', companyId);
 
     const res = await fetch(`/api/tax-register?${params}`);
@@ -1089,10 +1071,12 @@ async function viewInvoice(id) {
             }, 100);
         }
 
-        // Show Print View
+        // Show Print View with scrolling
+        const printViewEl = document.getElementById('print-view');
         document.getElementById('main-content').classList.add('hidden');
         document.getElementById('sidebar').classList.add('hidden');
-        document.getElementById('print-view').classList.remove('print-only');
+        printViewEl.classList.remove('print-only');
+        printViewEl.classList.add('h-screen', 'overflow-y-auto');
 
         // Add Close Button
         const closeBtn = document.createElement('button');
