@@ -690,8 +690,21 @@ async function printTaxRegister() {
     });
 
     const printView = document.getElementById('print-view');
-    printView.innerHTML = `
-        <div class="max-w-4xl mx-auto bg-white p-8" style="direction: rtl; font-family: 'Segoe UI', sans-serif;">
+
+    // Calculate rows per page (approximately 25 rows per page)
+    const rowsPerPage = 25;
+    const totalPages = Math.ceil(rows.length / rowsPerPage);
+
+    let pagesHtml = '';
+
+    for (let page = 0; page < totalPages; page++) {
+        const startIdx = page * rowsPerPage;
+        const endIdx = Math.min(startIdx + rowsPerPage, rows.length);
+        const pageRows = rows.slice(startIdx, endIdx);
+        const isLastPage = (page === totalPages - 1);
+
+        pagesHtml += `
+        <div class="max-w-4xl mx-auto bg-white p-8" style="direction: rtl; font-family: 'Segoe UI', sans-serif; page-break-after: ${isLastPage ? 'auto' : 'always'}; min-height: 297mm;">
             <div class="flex justify-between items-center border-b-2 border-gray-800 pb-6 mb-6">
                 <div>
                     <h1 class="text-2xl font-bold">${settings.company_name_ar || 'اسم الشركة'}</h1>
@@ -707,6 +720,7 @@ async function printTaxRegister() {
                             <span>${hijriDate} هـ</span>
                         </div>
                     </div>
+                    <div class="text-sm text-gray-500 mt-2">صفحة ${page + 1} من ${totalPages}</div>
                 </div>
             </div>
             <table class="w-full border-collapse">
@@ -720,7 +734,7 @@ async function printTaxRegister() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${rows.map(r => `
+                    ${pageRows.map(r => `
                     <tr class="border-b">
                         <td class="p-3">${r.date}</td>
                         <td class="p-3">${r.company_name}</td>
@@ -730,6 +744,7 @@ async function printTaxRegister() {
                     </tr>
                     `).join('')}
                 </tbody>
+                ${isLastPage ? `
                 <tfoot>
                     <tr class="bg-gray-100 font-bold">
                         <td colspan="2" class="p-3 text-right">الإجمالي</td>
@@ -738,9 +753,13 @@ async function printTaxRegister() {
                         <td class="p-3 text-left">${formatCurrency(totalAfter)}</td>
                     </tr>
                 </tfoot>
+                ` : ''}
             </table>
         </div>
-    `;
+        `;
+    }
+
+    printView.innerHTML = pagesHtml;
 
     setTimeout(() => {
         document.getElementById('main-content').classList.add('hidden');
@@ -893,7 +912,7 @@ async function viewInvoice(id) {
             `).join('');
 
         printView.innerHTML = `
-                <div class="relative mx-auto bg-white shadow-lg overflow-hidden" style="width: 210mm; height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13.5px; color: #000;">
+                <div class="relative mx-auto bg-white shadow-lg overflow-hidden" style="width: 210mm; min-height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13.5px; color: #000;">
                     
                     <!-- Background Image -->
                     <div class="absolute inset-0 z-0">
@@ -1089,12 +1108,13 @@ async function viewInvoice(id) {
             }, 100);
         }
 
-        // Show Print View with scrolling
+        // Show Print View with scrolling and centered
         const printViewEl = document.getElementById('print-view');
         document.getElementById('main-content').classList.add('hidden');
         document.getElementById('sidebar').classList.add('hidden');
         printViewEl.classList.remove('print-only');
-        printViewEl.classList.add('h-screen', 'overflow-y-auto');
+        printViewEl.classList.add('h-screen', 'overflow-y-auto', 'flex', 'items-center', 'justify-center');
+        printViewEl.style.backgroundColor = '#f3f4f6';
 
         // Add Close Button
         const closeBtn = document.createElement('button');
@@ -1103,7 +1123,8 @@ async function viewInvoice(id) {
         closeBtn.onclick = () => {
             const printViewEl = document.getElementById('print-view');
             printViewEl.classList.add('print-only');
-            printViewEl.classList.remove('h-screen', 'overflow-y-auto');
+            printViewEl.classList.remove('h-screen', 'overflow-y-auto', 'flex', 'items-center', 'justify-center');
+            printViewEl.style.backgroundColor = '';
             printViewEl.innerHTML = '';
             document.getElementById('main-content').classList.remove('hidden');
             document.getElementById('sidebar').classList.remove('hidden');
