@@ -1068,13 +1068,13 @@ async function viewInvoice(id) {
 
                         <!-- Footer Section: Totals & Bank -->
                         <div class="mt-auto">
-                            <div class="flex gap-6 items-start">
+                            <div class="flex gap-3 items-start">
                                 <!-- Notes & Terms -->
-                                <div class="w-1/2 pt-2">
+                                <div class="w-1/2 pt-1">
                                      ${invoice.notes ? `
-                                        <div class="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs">
-                                            <span class="block font-bold text-gray-800 mb-1 border-b border-yellow-200 pb-1 text-sm">ملاحظات / Notes</span>
-                                            <p class="text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">${invoice.notes}</p>
+                                        <div class="bg-yellow-50 border border-yellow-200 rounded p-1.5 text-xs">
+                                            <span class="block font-bold text-gray-800 mb-0.5 border-b border-yellow-200 pb-0.5 text-xs">ملاحظات / Notes</span>
+                                            <p class="text-gray-800 whitespace-pre-wrap leading-snug font-medium text-[11px]">${invoice.notes}</p>
                                         </div>
                                     ` : ''}
                                 </div>
@@ -1083,16 +1083,16 @@ async function viewInvoice(id) {
                                 <div class="w-1/2">
                                     <table class="w-full text-sm font-bold border-collapse border border-gray-400 bg-white">
                                         <tr>
-                                            <td class="p-2 border border-gray-300 bg-gray-50 text-gray-800 text-sm">الإجمالي (غير شامل الضريبة) <br> <span class="font-normal text-[10px] text-gray-600">Total (Excl. VAT)</span></td>
-                                            <td class="p-2 border border-gray-300 text-left font-mono text-base">${formatCurrency(invoice.total_before_tax)}</td>
+                                            <td class="p-1.5 border border-gray-300 bg-gray-50 text-gray-800 text-xs">الإجمالي (غير شامل الضريبة) <br> <span class="font-normal text-[9px] text-gray-600">Total (Excl. VAT)</span></td>
+                                            <td class="p-1.5 border border-gray-300 text-left font-mono text-sm">${formatCurrency(invoice.total_before_tax)}</td>
                                         </tr>
                                         <tr>
-                                            <td class="p-2 border border-gray-300 bg-gray-50 text-gray-800 text-sm">مجموع الضريبة (15%) <br> <span class="font-normal text-[10px] text-gray-600">Total VAT (15%)</span></td>
-                                            <td class="p-2 border border-gray-300 text-left font-mono text-base text-red-600">${formatCurrency(invoice.vat_amount)}</td>
+                                            <td class="p-1.5 border border-gray-300 bg-gray-50 text-gray-800 text-xs">مجموع الضريبة (15%) <br> <span class="font-normal text-[9px] text-gray-600">Total VAT (15%)</span></td>
+                                            <td class="p-1.5 border border-gray-300 text-left font-mono text-sm text-red-600">${formatCurrency(invoice.vat_amount)}</td>
                                         </tr>
                                         <tr class="bg-gray-800 text-white">
-                                            <td class="p-3 border border-gray-800 text-base">الإجمالي المستحق <br> <span class="font-normal text-xs text-gray-300">Total Amount Due</span></td>
-                                            <td class="p-3 border border-gray-800 text-left font-mono text-xl font-bold">${formatCurrency(invoice.total_after_tax)}</td>
+                                            <td class="p-2 border border-gray-800 text-sm">الإجمالي المستحق <br> <span class="font-normal text-[10px] text-gray-300">Total Amount Due</span></td>
+                                            <td class="p-2 border border-gray-800 text-left font-mono text-lg font-bold">${formatCurrency(invoice.total_after_tax)}</td>
                                         </tr>
                                     </table>
                                 </div>
