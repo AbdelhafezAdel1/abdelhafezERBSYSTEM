@@ -1033,7 +1033,8 @@ async function viewInvoice(id) {
 
                             <!-- Bank Details -->
                             <div class="mt-4 border-t-2 border-gray-200 pt-3">
-                                <div class="flex justify-center items-center gap-6 text-sm text-gray-800 bg-gray-50 py-2 rounded border border-gray-200">
+                                <!-- Al Ahli Bank -->
+                                <div class="flex justify-center items-center gap-4 text-sm text-gray-800 bg-gray-50 py-2 rounded border border-gray-200 mb-2">
                                     <div class="font-bold flex items-center gap-2 text-sm">
                                         <i class="fas fa-university text-blue-600 text-lg"></i>
                                         <span>البنك الأهلي السعودي</span>
@@ -1047,6 +1048,23 @@ async function viewInvoice(id) {
                                     <div class="font-mono flex flex-col items-start leading-tight">
                                         <span class="text-[10px] text-gray-500 uppercase font-bold">IBAN</span>
                                         <span class="font-bold text-base text-blue-900">SA7610000074800000268401</span>
+                                    </div>
+                                </div>
+                                <!-- Al Inma Bank -->
+                                <div class="flex justify-center items-center gap-4 text-sm text-gray-800 bg-green-50 py-2 rounded border border-green-200">
+                                    <div class="font-bold flex items-center gap-2 text-sm">
+                                        <i class="fas fa-university text-green-600 text-lg"></i>
+                                        <span>بنك الإنماء</span>
+                                    </div>
+                                    <div class="h-5 w-px bg-gray-300"></div>
+                                    <div class="font-mono flex flex-col items-start leading-tight">
+                                        <span class="text-[10px] text-gray-500 uppercase font-bold">Account Number</span>
+                                        <span class="font-bold text-base text-green-900">68207038853000</span>
+                                    </div>
+                                    <div class="h-5 w-px bg-gray-300"></div>
+                                    <div class="font-mono flex flex-col items-start leading-tight">
+                                        <span class="text-[10px] text-gray-500 uppercase font-bold">IBAN</span>
+                                        <span class="font-bold text-base text-green-900">SA2305000068207038853000</span>
                                     </div>
                                 </div>
                             </div>
