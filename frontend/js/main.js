@@ -915,8 +915,9 @@ async function viewInvoice(id) {
 
         const printView = document.getElementById('print-view');
 
-        // Generate Items HTML
-        const itemsHtml = invoice.items.map((item, index) => `
+        // Generate Items HTML - Filter out zero values
+        const validItems = invoice.items.filter(item => parseFloat(item.line_total) > 0);
+        const itemsHtml = validItems.map((item, index) => `
                 <tr class="border-b border-gray-300">
                     <td class="p-2 text-center">${index + 1}</td>
                     <td class="p-2">${item.description}</td>
