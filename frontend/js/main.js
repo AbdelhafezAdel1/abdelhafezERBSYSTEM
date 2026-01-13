@@ -779,17 +779,32 @@ async function printTaxRegister() {
 
     printView.innerHTML = pagesHtml;
 
+    // Show Print View
+    const printViewEl = document.getElementById('print-view');
+    document.getElementById('main-content').classList.add('hidden');
+    document.getElementById('sidebar').classList.add('hidden');
+    printViewEl.classList.remove('print-only');
+    printViewEl.classList.add('h-screen', 'overflow-auto', 'block');
+    printViewEl.style.backgroundColor = '#f3f4f6';
+
+    // Add Close Button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-2 rounded-lg shadow-lg no-print z-50 hover:bg-red-700 transition-colors font-bold flex items-center gap-2';
+    closeBtn.innerHTML = '<i class="fas fa-times"></i> إغلاق';
+    closeBtn.onclick = () => {
+        printViewEl.classList.add('print-only');
+        printViewEl.classList.remove('h-screen', 'overflow-auto', 'block');
+        printViewEl.style.backgroundColor = '';
+        printViewEl.innerHTML = '';
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('sidebar').classList.remove('hidden');
+    };
+    printView.appendChild(closeBtn);
+
+    // Auto-print after slight delay
     setTimeout(() => {
-        document.getElementById('main-content').classList.add('hidden');
-        document.getElementById('sidebar').classList.add('hidden');
-        document.getElementById('print-view').classList.remove('print-only');
         window.print();
-        setTimeout(() => {
-            document.getElementById('print-view').classList.add('print-only');
-            document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('sidebar').classList.remove('hidden');
-        }, 500);
-    }, 100);
+    }, 500);
 }
 
 function sendToZatcaBatch() {
@@ -1144,7 +1159,7 @@ async function viewInvoice(id) {
         closeBtn.onclick = () => {
             const printViewEl = document.getElementById('print-view');
             printViewEl.classList.add('print-only');
-            printViewEl.classList.remove('h-screen', 'overflow-y-auto', 'flex', 'items-center', 'justify-center');
+            printViewEl.classList.remove('h-screen', 'overflow-auto', 'block');
             printViewEl.style.backgroundColor = '';
             printViewEl.innerHTML = '';
             document.getElementById('main-content').classList.remove('hidden');
