@@ -925,8 +925,8 @@ async function viewInvoice(id) {
             `).join('');
 
         printView.innerHTML = `
-                <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 40px 20px;">
-                    <div class="relative bg-white shadow-lg overflow-hidden" style="width: 210mm; min-height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13.5px; color: #000; transform: scale(0.75); transform-origin: top center;">
+                <div style="display: flex; justify-content: flex-start; align-items: flex-start; min-height: 100vh; padding: 40px 20px; padding-top: 20vh; padding-left: 10vw;">
+                    <div class="relative bg-white shadow-lg overflow-hidden" style="width: 210mm; min-height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28.5px; color: #000; transform: scale(0.75); transform-origin: top left;">
                         
                         <!-- Background Image -->
                         <div class="absolute inset-0 z-0">
