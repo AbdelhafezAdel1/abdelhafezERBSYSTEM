@@ -925,8 +925,8 @@ async function viewInvoice(id) {
             `).join('');
 
         printView.innerHTML = `
-                <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 50px;">
-                    <div class="relative bg-white shadow-lg overflow-hidden" style="width: 250mm; min-height: 333mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28.5px; color: #000; transform: scale(0.75); transform-origin: top center;">
+                <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; min-width: 100%; padding: 50px;">
+                    <div class="relative bg-white shadow-lg overflow-hidden" style="width: 250mm; min-height: 333mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28.5px; color: #000; transform: scale(0.85); transform-origin: top center;">
                         
                         <!-- Background Image -->
                         <div class="absolute inset-0 z-0">
@@ -1128,7 +1128,7 @@ async function viewInvoice(id) {
         document.getElementById('main-content').classList.add('hidden');
         document.getElementById('sidebar').classList.add('hidden');
         printViewEl.classList.remove('print-only');
-        printViewEl.classList.add('h-screen', 'overflow-y-auto', 'flex', 'items-center', 'justify-center');
+        printViewEl.classList.add('h-screen', 'overflow-auto', 'block');
         printViewEl.style.backgroundColor = '#f3f4f6';
 
         // Add Close Button
