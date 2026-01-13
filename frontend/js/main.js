@@ -932,16 +932,29 @@ async function viewInvoice(id) {
 
         // Generate Items HTML - Filter out zero values
         const validItems = invoice.items.filter(item => parseFloat(item.line_total) > 0);
+
+        // Dynamic font sizing based on number of items
+        const itemCount = invoice.items.length;
+        let tableFontSize = 'text-sm';
+        let cellPadding = 'p-2';
+        let headerFontSize = 'text-sm';
+
+        if (itemCount > 4) {
+            tableFontSize = 'text-xs';
+            cellPadding = 'p-1';
+            headerFontSize = 'text-xs';
+        }
+
         const itemsHtml = validItems.map((item, index) => `
                 <tr class="border-b border-gray-300">
-                    <td class="p-2 text-center">${index + 1}</td>
-                    <td class="p-2">${item.description}</td>
-                    <td class="p-2 text-center">${item.quantity}</td>
-                    <td class="p-2 text-center">${formatCurrency(item.unit_price)}</td>
-                    <td class="p-2 text-center">${formatCurrency(item.line_total)}</td>
-                    <td class="p-2 text-center">${item.taxable ? '15%' : '0%'}</td>
-                    <td class="p-2 text-center">${item.taxable ? formatCurrency(item.line_total * 0.15) : '0.00'}</td>
-                    <td class="p-2 text-center">${formatCurrency(item.line_total + (item.taxable ? item.line_total * 0.15 : 0))}</td>
+                    <td class="${cellPadding} text-center">${index + 1}</td>
+                    <td class="${cellPadding}">${item.description}</td>
+                    <td class="${cellPadding} text-center">${item.quantity}</td>
+                    <td class="${cellPadding} text-center">${formatCurrency(item.unit_price)}</td>
+                    <td class="${cellPadding} text-center">${formatCurrency(item.line_total)}</td>
+                    <td class="${cellPadding} text-center">${item.taxable ? '15%' : '0%'}</td>
+                    <td class="${cellPadding} text-center">${item.taxable ? formatCurrency(item.line_total * 0.15) : '0.00'}</td>
+                    <td class="${cellPadding} text-center">${formatCurrency(item.line_total + (item.taxable ? item.line_total * 0.15 : 0))}</td>
                 </tr>
             `).join('');
 
@@ -1025,28 +1038,28 @@ async function viewInvoice(id) {
 
                         <!-- ZATCA Standard Table -->
                         <div class="flex-grow">
-                            <table class="w-full border-collapse border border-gray-800 text-sm bg-white/80">
+                            <table class="w-full border-collapse border border-gray-800 ${tableFontSize} bg-white/80">
                                 <thead>
                                     <tr class="bg-gray-800 text-white">
-                                        <th class="border border-gray-600 p-2 w-[5%] text-center">#</th>
-                                        <th class="border border-gray-600 p-2 w-[35%] text-right font-bold text-sm">السلع والخدمات <br><span class="text-[10px] font-normal text-gray-300">Description</span></th>
-                                        <th class="border border-gray-600 p-2 w-[10%] text-center font-bold">الكمية <br><span class="text-[10px] font-normal text-gray-300">Qty</span></th>
-                                        <th class="border border-gray-600 p-2 w-[12%] text-center font-bold">سعر الوحدة <br><span class="text-[10px] font-normal text-gray-300">Unit Price</span></th>
-                                        <th class="border border-gray-600 p-2 w-[13%] text-center font-bold">المجموع <br><span class="text-[10px] font-normal text-gray-300">Subtotal</span></th>
-                                        <th class="border border-gray-600 p-2 w-[12%] text-center font-bold">الضريبة <br><span class="text-[10px] font-normal text-gray-300">VAT (15%)</span></th>
-                                        <th class="border border-gray-600 p-2 w-[13%] text-center font-bold">الإجمالي <br><span class="text-[10px] font-normal text-gray-300">Total</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[5%] text-center">#</th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[35%] text-right font-bold ${headerFontSize}">السلع والخدمات <br><span class="text-[10px] font-normal text-gray-300">Description</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[10%] text-center font-bold">الكمية <br><span class="text-[10px] font-normal text-gray-300">Qty</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold">سعر الوحدة <br><span class="text-[10px] font-normal text-gray-300">Unit Price</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[13%] text-center font-bold">المجموع <br><span class="text-[10px] font-normal text-gray-300">Subtotal</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold">الضريبة <br><span class="text-[10px] font-normal text-gray-300">VAT (15%)</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[13%] text-center font-bold">الإجمالي <br><span class="text-[10px] font-normal text-gray-300">Total</span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${invoice.items.map((item, i) => `
                                     <tr class="border-b border-gray-300 even:bg-gray-50">
-                                        <td class="border-x border-gray-300 p-2 text-center font-mono text-gray-600">${i + 1}</td>
-                                        <td class="border-x border-gray-300 p-2 font-bold text-gray-900 text-sm">${item.description}</td>
-                                        <td class="border-x border-gray-300 p-2 text-center font-mono font-bold text-sm">${item.quantity}</td>
-                                        <td class="border-x border-gray-300 p-2 text-center font-mono text-sm">${formatCurrency(item.unit_price).replace(' ريال', '')}</td>
-                                        <td class="border-x border-gray-300 p-2 text-center font-mono text-sm">${formatCurrency(item.line_total).replace(' ريال', '')}</td>
-                                        <td class="border-x border-gray-300 p-2 text-center font-mono text-sm">${item.taxable ? formatCurrency(item.line_total * 0.15).replace(' ريال', '') : '0.00'}</td>
-                                        <td class="border-x border-gray-300 p-2 text-center font-mono font-bold text-base text-gray-900">${formatCurrency(item.line_total + (item.taxable ? item.line_total * 0.15 : 0)).replace(' ريال', '')}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono text-gray-600">${i + 1}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} font-bold text-gray-900 ${tableFontSize}">${item.description}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono font-bold ${tableFontSize}">${item.quantity}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono ${tableFontSize}">${formatCurrency(item.unit_price).replace(' ريال', '')}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono ${tableFontSize}">${formatCurrency(item.line_total).replace(' ريال', '')}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono ${tableFontSize}">${item.taxable ? formatCurrency(item.line_total * 0.15).replace(' ريال', '') : '0.00'}</td>
+                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono font-bold ${tableFontSize} text-gray-900">${formatCurrency(item.line_total + (item.taxable ? item.line_total * 0.15 : 0)).replace(' ريال', '')}</td>
                                     </tr>
                                     `).join('')}
                                 </tbody>
@@ -1086,39 +1099,35 @@ async function viewInvoice(id) {
                             </div>
 
                             <!-- Bank Details -->
-                            <div class="mt-4 border-t-2 border-gray-200 pt-3">
+                            <div class="mt-3 border-t-2 border-gray-200 pt-1.5 grid grid-cols-2 gap-1.5">
                                 <!-- Al Ahli Bank -->
-                                <div class="flex justify-center items-center gap-4 text-sm text-gray-800 bg-gray-50 py-2 rounded border border-gray-200 mb-2">
-                                    <div class="font-bold flex items-center gap-2 text-sm">
-                                        <i class="fas fa-university text-blue-600 text-lg"></i>
+                                <div class="flex flex-col justify-center items-center text-xs text-gray-800 bg-gray-50 py-0.5 rounded border border-gray-200">
+                                    <div class="font-bold flex items-center gap-1 mb-0.5 text-xs">
+                                        <i class="fas fa-university text-blue-600 text-[10px]"></i>
                                         <span>البنك الأهلي السعودي</span>
                                     </div>
-                                    <div class="h-5 w-px bg-gray-300"></div>
-                                    <div class="font-mono flex flex-col items-start leading-tight">
-                                        <span class="text-[10px] text-gray-500 uppercase font-bold">Account Number</span>
-                                        <span class="font-bold text-base text-blue-900">74800000268401</span>
+                                    <div class="w-full px-1.5 flex justify-between items-center border-b border-gray-200 pb-0.5 mb-0.5">
+                                        <span class="text-[9px] text-gray-500 uppercase font-bold">Account</span>
+                                        <span class="font-mono font-bold text-[11px] text-blue-900">74800000268401</span>
                                     </div>
-                                    <div class="h-5 w-px bg-gray-300"></div>
-                                    <div class="font-mono flex flex-col items-start leading-tight">
-                                        <span class="text-[10px] text-gray-500 uppercase font-bold">IBAN</span>
-                                        <span class="font-bold text-base text-blue-900">SA7610000074800000268401</span>
+                                    <div class="w-full px-1.5 flex justify-between items-center">
+                                        <span class="text-[9px] text-gray-500 uppercase font-bold">IBAN</span>
+                                        <span class="font-mono font-bold text-[10px] text-blue-900">SA7610000074800000268401</span>
                                     </div>
                                 </div>
                                 <!-- Al Inma Bank -->
-                                <div class="flex justify-center items-center gap-4 text-sm text-gray-800 bg-green-50 py-2 rounded border border-green-200">
-                                    <div class="font-bold flex items-center gap-2 text-sm">
-                                        <i class="fas fa-university text-green-600 text-lg"></i>
+                                <div class="flex flex-col justify-center items-center text-xs text-gray-800 bg-green-50 py-0.5 rounded border border-green-200">
+                                    <div class="font-bold flex items-center gap-1 mb-0.5 text-xs">
+                                        <i class="fas fa-university text-green-600 text-[10px]"></i>
                                         <span>بنك الإنماء</span>
                                     </div>
-                                    <div class="h-5 w-px bg-gray-300"></div>
-                                    <div class="font-mono flex flex-col items-start leading-tight">
-                                        <span class="text-[10px] text-gray-500 uppercase font-bold">Account Number</span>
-                                        <span class="font-bold text-base text-green-900">68207038853000</span>
+                                    <div class="w-full px-1.5 flex justify-between items-center border-b border-gray-200 pb-0.5 mb-0.5">
+                                        <span class="text-[9px] text-gray-500 uppercase font-bold">Account</span>
+                                        <span class="font-mono font-bold text-[11px] text-green-900">68207038853000</span>
                                     </div>
-                                    <div class="h-5 w-px bg-gray-300"></div>
-                                    <div class="font-mono flex flex-col items-start leading-tight">
-                                        <span class="text-[10px] text-gray-500 uppercase font-bold">IBAN</span>
-                                        <span class="font-bold text-base text-green-900">SA2305000068207038853000</span>
+                                    <div class="w-full px-1.5 flex justify-between items-center">
+                                        <span class="text-[9px] text-gray-500 uppercase font-bold">IBAN</span>
+                                        <span class="font-mono font-bold text-[10px] text-green-900">SA2305000068207038853000</span>
                                     </div>
                                 </div>
                             </div>
