@@ -959,8 +959,25 @@ async function viewInvoice(id) {
             `).join('');
 
         printView.innerHTML = `
-                <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; min-width: 100%; padding: 50px;">
-                    <div class="relative bg-white shadow-lg overflow-hidden" style="width: 250mm; min-height: 333mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28.5px; color: #000; transform: scale(0.85); transform-origin: top center;">
+                <style>
+                    @media print {
+                        @page { size: A4; margin: 0; }
+                        body { margin: 0; padding: 0; }
+                        .no-print { display: none !important; }
+                        .print-container { padding: 0 !important; height: 100vh !important; display: block !important; }
+                        .invoice-box { 
+                            width: 100% !important; 
+                            height: 100% !important; 
+                            transform: none !important; 
+                            min-height: auto !important;
+                            box-shadow: none !important;
+                            margin: 0 !important;
+                            border-radius: 0 !important;
+                        }
+                    }
+                </style>
+                <div class="print-container" style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; min-width: 100%; padding: 20px; background-color: #f3f4f6;">
+                    <div class="invoice-box relative bg-white shadow-lg overflow-hidden" style="width: 250mm; min-height: 333mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 28.5px; color: #000; transform: scale(0.85); transform-origin: top center; margin-bottom: 20px;">
                         
                         <!-- Background Image -->
                         <div class="absolute inset-0 z-0">
@@ -968,7 +985,7 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Content Overlay -->
-                        <div class="relative z-10 px-10 flex flex-col h-full" style="padding-top: 200px; padding-bottom: 220px;">
+                        <div class="relative z-10 px-10 flex flex-col h-full" style="padding-top: 180px; padding-bottom: 150px;">
                         
                         <!-- Header Section: Invoice Title & Meta -->
                         <div class="flex justify-between items-start mb-4">
