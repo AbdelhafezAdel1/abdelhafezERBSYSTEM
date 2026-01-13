@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام ERP الاحترافي</title>
+    <!-- Version 4.0 - Tax Register Date Filter Fix -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -40,14 +41,12 @@
             }
 
             #print-view {
-                position: absolute;
+                position: relative;
                 left: 0;
                 top: 0;
-                width: 210mm;
-                height: 297mm;
+                width: 100%;
                 margin: 0;
                 padding: 0;
-                overflow: hidden;
             }
         }
 
@@ -487,36 +486,12 @@
                 <h2 class="text-3xl font-bold text-gray-800 mb-6">السجل الضريبي</h2>
                 <div class="card p-4 mb-6 flex flex-wrap gap-4 items-end">
                     <div class="flex-1 min-w-[150px]">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">الشهر</label>
-                        <select id="tax-month" class="w-full">
-                            <option value="">كل الأشهر</option>
-                            <option value="01">يناير</option>
-                            <option value="02">فبراير</option>
-                            <option value="03">مارس</option>
-                            <option value="04">أبريل</option>
-                            <option value="05">مايو</option>
-                            <option value="06">يونيو</option>
-                            <option value="07">يوليو</option>
-                            <option value="08">أغسطس</option>
-                            <option value="09">سبتمبر</option>
-                            <option value="10">أكتوبر</option>
-                            <option value="11">نوفمبر</option>
-                            <option value="12">ديسمبر</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
+                        <input type="date" id="tax-start-date" class="w-full">
                     </div>
                     <div class="flex-1 min-w-[150px]">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">السنة</label>
-                        <select id="tax-year" class="w-full">
-                            <option value="">كل السنوات</option>
-                            <option value="2030">2030</option>
-                            <option value="2029">2029</option>
-                            <option value="2028">2028</option>
-                            <option value="2027">2027</option>
-                            <option value="2026">2026</option>
-                            <option value="2025">2025</option>
-                            <option value="2024">2024</option>
-                            <option value="2023">2023</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
+                        <input type="date" id="tax-end-date" class="w-full">
                     </div>
                     <div class="flex-1 min-w-[200px]">
                         <label class="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
@@ -741,7 +716,7 @@
         </div>
     </div>
 
-    <script src="/js/main.js?v=2"></script>
+    <script src="/js/main.js?v=4"></script>
 </body>
 
 </html>
