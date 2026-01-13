@@ -744,20 +744,26 @@ async function printTaxRegister() {
                     </tr>
                     `).join('')}
                 </tbody>
-                ${isLastPage ? `
-                <tfoot>
-                    <tr class="bg-gray-100 font-bold">
-                        <td colspan="2" class="p-3 text-right">الإجمالي</td>
-                        <td class="p-3 text-left">${formatCurrency(totalBefore)}</td>
-                        <td class="p-3 text-left">${formatCurrency(totalVat)}</td>
-                        <td class="p-3 text-left">${formatCurrency(totalAfter)}</td>
-                    </tr>
-                </tfoot>
-                ` : ''}
             </table>
         </div>
         `;
     }
+
+    // Add totals section at the very end, outside all pages
+    pagesHtml += `
+    <div class="max-w-4xl mx-auto bg-white p-8" style="direction: rtl; font-family: 'Segoe UI', sans-serif;">
+        <table class="w-full border-collapse">
+            <tfoot>
+                <tr class="bg-gray-800 text-white font-bold text-lg">
+                    <td colspan="2" class="p-4 text-right">الإجمالي الكلي</td>
+                    <td class="p-4 text-left">${formatCurrency(totalBefore)}</td>
+                    <td class="p-4 text-left">${formatCurrency(totalVat)}</td>
+                    <td class="p-4 text-left">${formatCurrency(totalAfter)}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    `;
 
     printView.innerHTML = pagesHtml;
 
