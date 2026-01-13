@@ -647,6 +647,11 @@ async function printTaxRegister() {
     const endDate = document.getElementById('tax-end-date').value;
     const companyId = document.getElementById('tax-company').value;
 
+    if (!startDate || !endDate) {
+        alert('يجب اختيار التاريخ (من وإلى) قبل عرض السجل الضريبي');
+        return;
+    }
+
     const params = new URLSearchParams();
     let start = startDate || null;
     let end = endDate || null;
