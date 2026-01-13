@@ -684,9 +684,16 @@ async function printTaxRegister() {
     let totalVat = 0;
     let totalAfter = 0;
     rows.forEach(r => {
-        totalBefore += r.total_before_tax || 0;
-        totalVat += r.vat_amount || 0;
-        totalAfter += r.total_after_tax || 0;
+        totalBefore += parseFloat(r.total_before_tax) || 0;
+        totalVat += parseFloat(r.vat_amount) || 0;
+        totalAfter += parseFloat(r.total_after_tax) || 0;
+    });
+
+    console.log('Tax Register Totals:', {
+        rows: rows.length,
+        totalBefore: totalBefore.toFixed(2),
+        totalVat: totalVat.toFixed(2),
+        totalAfter: totalAfter.toFixed(2)
     });
 
     const printView = document.getElementById('print-view');
@@ -918,15 +925,16 @@ async function viewInvoice(id) {
             `).join('');
 
         printView.innerHTML = `
-                <div class="relative mx-auto bg-white shadow-lg overflow-hidden" style="width: 210mm; min-height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13.5px; color: #000;">
-                    
-                    <!-- Background Image -->
-                    <div class="absolute inset-0 z-0">
-                        <img src="/images/invoice-bg.jpg" class="w-full h-full object-fill" alt="Background">
-                    </div>
+                <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 40px 20px;">
+                    <div class="relative bg-white shadow-lg overflow-hidden" style="width: 210mm; min-height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13.5px; color: #000; transform: scale(0.75); transform-origin: top center;">
+                        
+                        <!-- Background Image -->
+                        <div class="absolute inset-0 z-0">
+                            <img src="/images/invoice-bg.jpg" class="w-full h-full object-fill" alt="Background">
+                        </div>
 
-                    <!-- Content Overlay -->
-                    <div class="relative z-10 px-10 flex flex-col h-full" style="padding-top: 200px; padding-bottom: 220px;">
+                        <!-- Content Overlay -->
+                        <div class="relative z-10 px-10 flex flex-col h-full" style="padding-top: 200px; padding-bottom: 220px;">
                         
                         <!-- Header Section: Invoice Title & Meta -->
                         <div class="flex justify-between items-start mb-4">
@@ -1097,6 +1105,7 @@ async function viewInvoice(id) {
 
                     </div>
                 </div>
+            </div>
             `;
 
         // Render QR Code
