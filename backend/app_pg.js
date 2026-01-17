@@ -12,13 +12,24 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configure session for production
+// Configure session for production with PostgreSQL store
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
+
+// استخدام PostgreSQL لتخزين الـ sessions بدلاً من MemoryStore
+const pgSession = require('connect-pg-simple')(session);
+
 app.use(session({
+    store: new pgSession({
+        pool: db.getPool(), // استخدام نفس الـ pool
+        tableName: 'session', // اسم الجدول للـ sessions
+        createTableIfMissing: true, // إنشاء الجدول تلقائياً إذا لم يكن موجوداً
+        pruneSessionInterval: 60 * 15 // تنظيف الـ sessions المنتهية كل 15 دقيقة (بدلاً من كل دقيقة)
+    }),
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
+    rolling: true, // تجديد الـ session مع كل طلب
     cookie: {
         secure: isProduction, // true in production (HTTPS), false in development
         httpOnly: true,
@@ -65,27 +76,68 @@ const zatcaRoutes = require('./routes/zatca');
 const taxRegisterRoutes = require('./routes/taxRegister');
 app.use('/api/zatca', zatcaRoutes);
 app.use('/api/tax-register', taxRegisterRoutes);
-// TEMPORARILY DISABLED EXTERNAL ROUTES UNTIL THEY ARE UPDATED
+
+// إنشاء المستخدم الافتراضي عند بدء التشغيل
+const SEED_USER = {
+    username: 'admin',
+    password: '100200300aa'
+};
+
+// التحقق من وجود المستخدم وإنشائه إذا لم يكن موجوداً
+(async () => {
+    try {
+        const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
+        if (result.rows.length === 0) {
+            await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
+                [SEED_USER.username, SEED_USER.password]);
+            console.log('✅ تم إنشاء المستخدم الافتراضي:', SEED_USER.username);
+        } else {
+            console.log('✅ المستخدم موجود:', SEED_USER.username);
+        }
+    } catch (err) {
+        console.error('❌ خطأ في إنشاء المستخدم:', err.message);
+    }
+})();
 
 // ---------- Auth ----------
 app.post('/auth/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Login attempt:', { username, password }); // Debug log
+
+    // التحقق من البيانات المدخلة
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    console.log('🔐 محاولة تسجيل دخول:', username);
+
     try {
-        const result = await db.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
-        console.log('Query result rows:', result.rows.length); // Debug log
+        // استعلام مباشر وسريع
+        const result = await db.query(
+            'SELECT id, username FROM users WHERE username = $1 AND password = $2 LIMIT 1',
+            [username, password]
+        );
+
         if (result.rows.length > 0) {
+            // حفظ معلومات المستخدم في الـ session
             req.session.userId = result.rows[0].id;
-            res.json({ success: true });
+            req.session.username = result.rows[0].username;
+
+            // حفظ الـ session بشكل صريح قبل الرد
+            req.session.save((err) => {
+                if (err) {
+                    console.error('❌ خطأ في حفظ session:', err.message);
+                    return res.status(500).json({ error: 'Session save failed' });
+                }
+                console.log('✅ تم تسجيل الدخول بنجاح:', username);
+                res.json({ success: true, username: result.rows[0].username });
+            });
         } else {
-            // Check if user exists at all
-            const userCheck = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-            console.log('User exists:', userCheck.rows.length > 0, 'Password in DB:', userCheck.rows[0]?.password); // Debug log
-            res.status(401).json({ error: 'Invalid credentials' });
+            console.log('❌ بيانات دخول خاطئة:', username);
+            res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
         }
     } catch (err) {
-        console.error('Login error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('❌ خطأ في تسجيل الدخول:', err.message);
+        res.status(500).json({ error: 'حدث خطأ في الاتصال بقاعدة البيانات' });
     }
 });
 
