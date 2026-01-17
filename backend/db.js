@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // Support both DATABASE_URL (Render/Supabase) and individual env vars
 const poolConfig = process.env.DATABASE_URL
@@ -15,17 +16,19 @@ const poolConfig = process.env.DATABASE_URL
         database: process.env.DB_NAME || 'erb_system',
         password: process.env.DB_PASSWORD || 'password',
         port: process.env.DB_PORT || 5432,
+        ssl: {
+            rejectUnauthorized: false
+        }
     };
 
-// إعدادات محسّنة لحل مشكلة sleep والاتصال
-poolConfig.max = 20; // الحد الأقصى للاتصالات في الـ pool
-poolConfig.min = 2; // الحد الأدنى للاتصالات النشطة دائماً
-poolConfig.idleTimeoutMillis = 30000; // 30 ثانية قبل إغلاق اتصال خامل
-poolConfig.connectionTimeoutMillis = 60000; // 60 ثانية timeout للاتصال
+// إعدادات محسّنة لحل مشكلة sleep والاتصال مع Supabase
+poolConfig.max = 10; // تقليل العدد الأقصى للاتصالات (Supabase pooler له حدود)
+poolConfig.min = 1; // الحد الأدنى للاتصالات النشطة
+poolConfig.idleTimeoutMillis = 20000; // 20 ثانية قبل إغلاق اتصال خامل
+poolConfig.connectionTimeoutMillis = 30000; // 30 ثانية timeout للاتصال (تقليل من 60)
 poolConfig.keepAlive = true; // إبقاء الاتصال نشط
-poolConfig.keepAliveInitialDelayMillis = 10000; // بدء keep-alive بعد 10 ثواني
-poolConfig.query_timeout = 30000; // 30 ثانية timeout للاستعلام
-poolConfig.statement_timeout = 30000; // 30 ثانية timeout للعبارة
+poolConfig.keepAliveInitialDelayMillis = 0; // بدء keep-alive فوراً
+poolConfig.allowExitOnIdle = false; // عدم السماح بالخروج عند الخمول
 
 // إنشاء pool واحد فقط (singleton)
 let pool = null;
