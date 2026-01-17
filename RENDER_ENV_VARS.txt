@@ -1,0 +1,22 @@
+# Environment Variables for Render.com
+# Copy these to Render Dashboard -> Environment Variables
+
+DATABASE_URL=postgresql://postgres.dywmmrhbjrhbjatrsqhy:d819d105304bc15aa9cbd0d863bac3@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
+
+DB_USER=postgres.dywmmrhbjrhbjatrsqhy
+DB_HOST=aws-1-ap-south-1.pooler.supabase.com
+DB_NAME=postgres
+DB_PASSWORD=d819d105304bc15aa9cbd0d863bac3
+DB_PORT=6543
+
+NODE_ENV=production
+SESSION_SECRET=my-super-secret-session-key-change-this
+PORT=6543
+
+# Instructions:
+# 1. Go to Render Dashboard
+# 2. Select your service (abdelhafezerbsystem)
+# 3. Go to "Environment" tab
+# 4. Add each variable above (one per line)
+# 5. Click "Save Changes"
+# 6. Render will automatically redeploy

@@ -1,6 +1,7 @@
 const { Pool } = require('pg');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+// Load .env if exists (for local development), ignore if not found (for production/Render)
+require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
 // Support both DATABASE_URL (Render/Supabase) and individual env vars
 const poolConfig = process.env.DATABASE_URL
