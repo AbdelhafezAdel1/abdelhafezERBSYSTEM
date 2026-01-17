@@ -465,4 +465,15 @@ app.use((req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3100;
-app.listen(PORT, () => console.log(`PostgreSQL Server running on http://localhost:${PORT}`));
+app.listen(PORT, async () => {
+    console.log(`PostgreSQL Server running on http://localhost:${PORT}`);
+
+    // Warm-up Database Connection
+    try {
+        console.log('🔥 Warming up database connection...');
+        await db.query('SELECT 1');
+        console.log('✅ Database is warm and ready!');
+    } catch (err) {
+        console.error('⚠️ Database warm-up failed:', err.message);
+    }
+});
