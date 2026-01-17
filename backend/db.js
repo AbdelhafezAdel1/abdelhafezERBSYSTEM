@@ -4,9 +4,21 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
 // Support both DATABASE_URL (Render/Supabase) and individual env vars
-const poolConfig = process.env.DATABASE_URL
+// Support both DATABASE_URL (Render/Supabase) and individual env vars
+const connectionString = process.env.DATABASE_URL;
+
+console.log('🔌 DB Config Check:');
+if (connectionString) {
+    console.log('   Type: Connection String (Found)');
+    console.log('   Host:', connectionString.split('@')[1]?.split(':')[0] || 'Unknown');
+} else {
+    console.log('   Type: Individual Vars (Fallback)');
+    console.log('   Host:', process.env.DB_HOST || 'localhost (WARNING: Likely wrong for Render)');
+}
+
+const poolConfig = connectionString
     ? {
-        connectionString: process.env.DATABASE_URL,
+        connectionString: connectionString,
         ssl: {
             rejectUnauthorized: false // Required for Supabase/Render
         }
