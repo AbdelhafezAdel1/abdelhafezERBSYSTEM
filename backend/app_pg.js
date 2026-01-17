@@ -16,16 +16,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
 
-// استخدام PostgreSQL لتخزين الـ sessions بدلاً من MemoryStore
-const pgSession = require('connect-pg-simple')(session);
-
-app.use(session({
-    store: new pgSession({
-        pool: db.getPool(), // استخدام نفس الـ pool
-        tableName: 'session', // اسم الجدول للـ sessions
-        createTableIfMissing: true, // إنشاء الجدول تلقائياً إذا لم يكن موجوداً
-        pruneSessionInterval: 60 * 15 // تنظيف الـ sessions المنتهية كل 15 دقيقة (بدلاً من كل دقيقة)
-    }),
+// استخدام PostgreSQL لتخزين الـ sessions في development فقط
+// في production نستخدم MemoryStore لتجنب مشاكل timeout مع Supabase
+const sessionConfig = {
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
@@ -36,7 +29,20 @@ app.use(session({
         sameSite: 'lax', // Prevents CSRF while allowing normal link navigation
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-}));
+};
+
+// استخدام PostgreSQL session store في development فقط
+if (!isProduction) {
+    const pgSession = require('connect-pg-simple')(session);
+    sessionConfig.store = new pgSession({
+        pool: db.getPool(),
+        tableName: 'session',
+        createTableIfMissing: true,
+        pruneSessionInterval: 60 * 15
+    });
+}
+
+app.use(session(sessionConfig));
 
 // Authentication middleware - protect index.html
 const requireAuth = (req, res, next) => {
