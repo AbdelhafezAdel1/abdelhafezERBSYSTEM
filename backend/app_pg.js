@@ -92,11 +92,12 @@ const SEED_USER = {
     }
 })();
 
+const UserCache = require('./utils/UserCache');
+
 // ---------- Auth ----------
 app.post('/auth/login', async (req, res) => {
     const { username, password } = req.body;
 
-    // التحقق من البيانات المدخلة
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and password are required' });
     }
@@ -104,25 +105,32 @@ app.post('/auth/login', async (req, res) => {
     console.log('🔐 محاولة تسجيل دخول:', username);
 
     try {
-        // استعلام مباشر وسريع
-        const result = await db.query(
-            'SELECT id, username FROM users WHERE username = $1 AND password = $2 LIMIT 1',
-            [username, password]
-        );
+        // 1. محاولة البحث في الذاكرة (سريع جداً)
+        let user = UserCache.getUser(username);
 
-        if (result.rows.length > 0) {
+        // 2. إذا لم يوجد في الذاكرة، نبحث في قاعدة البيانات (احتياطي)
+        if (!user) {
+            console.log('⚠️ المستخدم غير موجود في الكاش، جاري البحث في قاعدة البيانات...');
+            const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+            if (result.rows.length > 0) {
+                user = result.rows[0];
+                // تحديث الكاش للمرة القادمة
+                UserCache.refresh();
+            }
+        }
+
+        if (user && user.password === password) {
             // حفظ معلومات المستخدم في الـ session
-            req.session.userId = result.rows[0].id;
-            req.session.username = result.rows[0].username;
+            req.session.userId = user.id;
+            req.session.username = user.username;
 
-            // حفظ الـ session بشكل صريح قبل الرد
             req.session.save((err) => {
                 if (err) {
                     console.error('❌ خطأ في حفظ session:', err.message);
                     return res.status(500).json({ error: 'Session save failed' });
                 }
-                console.log('✅ تم تسجيل الدخول بنجاح:', username);
-                res.json({ success: true, username: result.rows[0].username });
+                console.log('✅ تم تسجيل الدخول بنجاح (Instant):', username);
+                res.json({ success: true, username: user.username });
             });
         } else {
             console.log('❌ بيانات دخول خاطئة:', username);
@@ -130,7 +138,7 @@ app.post('/auth/login', async (req, res) => {
         }
     } catch (err) {
         console.error('❌ خطأ في تسجيل الدخول:', err.message);
-        res.status(500).json({ error: 'حدث خطأ في الاتصال بقاعدة البيانات' });
+        res.status(500).json({ error: 'حدث خطأ في النظام' });
     }
 });
 
@@ -472,6 +480,11 @@ app.listen(PORT, async () => {
     try {
         console.log('🔥 Warming up database connection...');
         await db.query('SELECT 1');
+
+        // Load User Cache
+        const UserCache = require('./utils/UserCache');
+        await UserCache.init();
+
         console.log('✅ Database is warm and ready!');
     } catch (err) {
         console.error('⚠️ Database warm-up failed:', err.message);
