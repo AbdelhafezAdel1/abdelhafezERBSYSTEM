@@ -194,11 +194,13 @@ app.post('/api/invoices', async (req, res) => {
 
     const qrBase64 = generateZatcaTLV('Abdelhafiz Adel', '300000000000003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
 
+    // استخدام client واحد من pool للمعاملة
+    const client = await db.getClient();
     try {
         // Start transaction
-        await db.query('BEGIN');
+        await client.query('BEGIN');
 
-        const invoiceResult = await db.query(
+        const invoiceResult = await client.query(
             `INSERT INTO invoices (company_id, date, customs_office, shipment_type, notes, status, qr_code, total_before_tax, clearance_fee, vat_amount, total_after_tax)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
             [company_id, date, customs_office, shipment_type, notes, status, qrBase64, total_before_tax, clearance_fee, vat_amount, total_after_tax]
@@ -208,18 +210,21 @@ app.post('/api/invoices', async (req, res) => {
 
         if (items && Array.isArray(items)) {
             for (const it of items) {
-                await db.query(
+                await client.query(
                     `INSERT INTO invoice_items (invoice_id, description, category, quantity, unit_price, line_total, taxable) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
                     [invoiceId, it.description, it.category, it.quantity, it.unit_price, it.quantity * it.unit_price, it.taxable ? 1 : 0]
                 );
             }
         }
 
-        await db.query('COMMIT');
+        await client.query('COMMIT');
         res.json({ id: invoiceId, qr_code: qrBase64 });
     } catch (err) {
-        await db.query('ROLLBACK');
+        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
+    } finally {
+        // إرجاع الـ client إلى الـ pool
+        client.release();
     }
 });
 
@@ -272,29 +277,34 @@ app.put('/api/invoices/:id', async (req, res) => {
     const total_after_tax = total_before_tax + vat_amount;
     const qrBase64 = generateZatcaTLV('Abdelhafiz Adel', '300000000000003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
 
+    // استخدام client واحد من pool للمعاملة
+    const client = await db.getClient();
     try {
-        await db.query('BEGIN');
-        await db.query(
+        await client.query('BEGIN');
+        await client.query(
             `UPDATE invoices SET company_id = $1, date = $2, customs_office = $3, shipment_type = $4, notes = $5, status = $6, total_before_tax = $7, clearance_fee = $8, vat_amount = $9, total_after_tax = $10, qr_code = $11 WHERE id = $12`,
             [company_id, date, customs_office, shipment_type, notes, status, total_before_tax, clearance_fee, vat_amount, total_after_tax, qrBase64, invoiceId]
         );
 
         // Replace items
-        await db.query('DELETE FROM invoice_items WHERE invoice_id = $1', [invoiceId]);
+        await client.query('DELETE FROM invoice_items WHERE invoice_id = $1', [invoiceId]);
 
         if (items && Array.isArray(items)) {
             for (const it of items) {
-                await db.query(
+                await client.query(
                     `INSERT INTO invoice_items (invoice_id, description, category, quantity, unit_price, line_total, taxable) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
                     [invoiceId, it.description, it.category, it.quantity, it.unit_price, it.quantity * it.unit_price, it.taxable ? 1 : 0]
                 );
             }
         }
-        await db.query('COMMIT');
+        await client.query('COMMIT');
         res.json({ id: invoiceId, changes: 1 });
     } catch (err) {
-        await db.query('ROLLBACK');
+        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
+    } finally {
+        // إرجاع الـ client إلى الـ pool
+        client.release();
     }
 });
 
