@@ -23,13 +23,13 @@ const poolConfig = process.env.DATABASE_URL
     };
 
 // إعدادات محسّنة لحل مشكلة sleep والاتصال مع Supabase
-poolConfig.max = 10; // تقليل العدد الأقصى للاتصالات (Supabase pooler له حدود)
-poolConfig.min = 1; // الحد الأدنى للاتصالات النشطة
-poolConfig.idleTimeoutMillis = 20000; // 20 ثانية قبل إغلاق اتصال خامل
-poolConfig.connectionTimeoutMillis = 30000; // 30 ثانية timeout للاتصال (تقليل من 60)
+poolConfig.max = 5; // تقليل العدد الأقصى (Supabase pooler له حدود)
+poolConfig.min = 0; // لا نحتاج اتصالات دائمة
+poolConfig.idleTimeoutMillis = 30000; // 30 ثانية قبل إغلاق اتصال خامل
+poolConfig.connectionTimeoutMillis = 60000; // 60 ثانية timeout للاتصال
 poolConfig.keepAlive = true; // إبقاء الاتصال نشط
 poolConfig.keepAliveInitialDelayMillis = 0; // بدء keep-alive فوراً
-poolConfig.allowExitOnIdle = false; // عدم السماح بالخروج عند الخمول
+poolConfig.allowExitOnIdle = true; // السماح بالخروج عند الخمول (توفير موارد)
 
 // إنشاء pool واحد فقط (singleton)
 let pool = null;
