@@ -12,37 +12,24 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configure session for production with PostgreSQL store
+// Configure session for production
+// نستخدم MemoryStore حالياً لضمان أسرع أداء ممكن في تسجيل الدخول
+// هذا يزيل التأخير الناتج عن الاتصال بقاعدة البيانات البعيدة لحفظ الجلسة
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
 
-// استخدام PostgreSQL لتخزين الـ sessions في development فقط
-// في production نستخدم MemoryStore لتجنب مشاكل timeout مع Supabase
-const sessionConfig = {
+app.use(session({
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
-    rolling: true, // تجديد الـ session مع كل طلب
+    rolling: true,
     cookie: {
         secure: isProduction, // true in production (HTTPS), false in development
         httpOnly: true,
-        sameSite: 'lax', // Prevents CSRF while allowing normal link navigation
+        sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
-};
-
-// استخدام PostgreSQL session store في development فقط
-if (!isProduction) {
-    const pgSession = require('connect-pg-simple')(session);
-    sessionConfig.store = new pgSession({
-        pool: db.getPool(),
-        tableName: 'session',
-        createTableIfMissing: true,
-        pruneSessionInterval: 60 * 15
-    });
-}
-
-app.use(session(sessionConfig));
+}));
 
 // Authentication middleware - protect index.html
 const requireAuth = (req, res, next) => {
