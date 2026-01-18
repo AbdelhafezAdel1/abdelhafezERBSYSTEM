@@ -1,12 +1,6 @@
 const { Pool } = require('pg');
 const path = require('path');
-const dns = require('dns');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
-
-// 🔥 FORCE IPv4: Fix for Render ENETUNREACH errors (Node 17+)
-if (dns.setDefaultResultOrder) {
-    dns.setDefaultResultOrder('ipv4first');
-}
 
 // 🔌 FINAL SOLUTION: Port 6543 with Non-Blocking Strategy
 // The key is NOT the port, but the non-blocking warm-up approach
