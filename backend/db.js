@@ -25,12 +25,10 @@ if (connectionString) {
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 5, // Strict limit for free tier
+        max: 10, // Increased to handling dashboard/parallel requests
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000,
-        // 🔥 TCP Keep-Alive: يمنع الـ "Socket Drop" الصامت من ناحية الشبكة
-        keepAlive: true,
-        keepAliveInitialDelayMillis: 10000,
+        connectionTimeoutMillis: 20000, // 20s
+        keepAlive: false, // Reverted: Pgbouncer handles keepalive, client should be stateless
         ssl: { rejectUnauthorized: false }
     }
     : {
