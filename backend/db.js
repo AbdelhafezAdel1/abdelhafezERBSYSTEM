@@ -20,13 +20,17 @@ if (connectionString) {
     console.error("❌ No DATABASE_URL found!");
 }
 
-// 2️⃣ إعدادات Pool مضبوطة بدقة (حسب الطلب)
+// 2️⃣ إعدادات Pool مضبوطة بدقة + TCP Optimization
+// بناءً على تحليل اللوج والمشاكل المستمرة في التايم أوت العشوائي
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
         max: 5, // Strict limit for free tier
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000, // 15s as requested
+        connectionTimeoutMillis: 15000,
+        // 🔥 TCP Keep-Alive: يمنع الـ "Socket Drop" الصامت من ناحية الشبكة
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
         ssl: { rejectUnauthorized: false }
     }
     : {
@@ -53,7 +57,8 @@ pool.on('error', (err) => {
 /* -------------------------------------------------------------------------- */
 
 async function query(text, params) {
-    // Simple retry logic for connectivity hiccups only (NOT switching ports)
+    // Smart Retry Logic with Exponential Backoff
+    // لحل مشكلة "Retry Storm" وإعطاء الشبكة فرصة للتعافي
     const maxRetries = 3;
     let lastError;
 
@@ -66,14 +71,14 @@ async function query(text, params) {
             console.warn(`⚠️ Query failed (attempt ${i + 1}/${maxRetries}): ${err.message}`);
 
             // لو الخطأ ليس له علاقة بالاتصال (مثلاً SQL Syntax)، ارمي الخطأ فوراً
-            // الخطأ 57P01 (admin_shutdown) أو connection errors تستحق المحاولة
             if (!err.message.includes('timeout') && !err.message.includes('connection') && !err.message.includes('57P01')) {
                 throw err;
             }
 
-            // انتظار قصير قبل المحاولة التالية
+            // Exponential Backoff: انتظر (1s, 2s, 4s)
             if (i < maxRetries - 1) {
-                await new Promise(r => setTimeout(r, 1000));
+                const delay = 1000 * Math.pow(2, i);
+                await new Promise(r => setTimeout(r, delay));
             }
         }
     }
