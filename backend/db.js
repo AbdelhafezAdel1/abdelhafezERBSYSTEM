@@ -27,11 +27,12 @@ if (connectionString) {
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 5, // Transaction pooler supports higher concurrency
-        min: 0, // Don't hold idle connections for transaction pooler
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 60000,
-        allowExitOnIdle: false,
+        // 🔥 STABILITY SETTINGS FOR FREE TIER (Pooler)
+        max: 2, // Keep concurrency very low to avoid rejection
+        min: 0, // Don't hold idle connections
+        idleTimeoutMillis: 5000, // Close idle connections FAST (5s) to avoid "terminated" errors
+        connectionTimeoutMillis: 10000, // Fail fast (10s) so retry logic works
+        allowExitOnIdle: true, // Allow Node to exit if pool is empty
         ssl: {
             rejectUnauthorized: false
         }
