@@ -2,36 +2,38 @@ const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
-// 1️⃣ استخدام متغير البيئة كما هو - Port 5432 (Session Mode)
-const connectionString = process.env.DATABASE_URL;
+// 1️⃣ Automatic Optimization: Force Transaction Pooler (Port 6543) for Supabase
+// This fixes the "Connection terminated" and "Timeout" issues on Render
+let connectionString = process.env.DATABASE_URL;
+
+if (connectionString && connectionString.includes('supabase.com') && connectionString.includes('5432')) {
+    console.log("🔄 Auto-Switching to Transaction Pooler (Port 5432 -> 6543)...");
+    connectionString = connectionString.replace('5432', '6543');
+}
 
 console.log('🔌 DB Config Check:');
 if (connectionString) {
-    // إخفاء الباسوورد من اللوج للأمان
     const safeConnString = connectionString.replace(/:[^:@]+@/, ':***@');
-    console.log(`   Connection String: ${safeConnString}`);
+    console.log(`   Target Connection: ${safeConnString}`);
 
     if (connectionString.includes('6543')) {
-        console.log("⚠️ Transaction Pooler (6543) detected.");
+        console.log("✅ Using Transaction Pooler (Optimized for Render).");
     } else {
-        console.log("🔵 Using Direct Connection / Session Mode (5432).");
+        console.warn("⚠️ Still using Session Mode (5432) - Timeouts may occur.");
     }
 } else {
     console.error("❌ No DATABASE_URL found!");
 }
 
-// 2️⃣ إعدادات Pool مضبوطة بدقة + TCP Optimization
-// بناءً على تحليل اللوج والمشاكل المستمرة في التايم أوت العشوائي
+// 2️⃣ Optimized Pool Config for Transaction Mode
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 5, // Strict limit for free tier
-        idleTimeoutMillis: 60000, // Increased to 60s
-        connectionTimeoutMillis: 60000, // Increased to 60s to handle cold starts
-        allowExitOnIdle: false, // Don't close idle connections in Session Mode
-        keepAlive: true, // Crucial for 5432 stability
-        keepAliveInitialDelayMillis: 10000,
-        ssl: { rejectUnauthorized: false }
+        max: 10, // Transaction pooler can handle more connections
+        idleTimeoutMillis: 20000, // Close idle connections faster to free up pooler slots
+        connectionTimeoutMillis: 10000, // Fail fast if pooler is down
+        allowExitOnIdle: false,
+        ssl: { rejectUnauthorized: false } // Required for Supabase
     }
     : {
         // Fallback for local development
@@ -39,7 +41,7 @@ const poolConfig = connectionString
         host: process.env.DB_HOST || 'localhost',
         database: process.env.DB_NAME || 'erb_system',
         password: process.env.DB_PASSWORD || 'password',
-        port: 6543,
+        port: 5432,
         ssl: { rejectUnauthorized: false }
     };
 
