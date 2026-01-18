@@ -25,10 +25,11 @@ if (connectionString) {
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 10, // Increased to handling dashboard/parallel requests
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 20000, // 20s
-        keepAlive: false, // Reverted: Pgbouncer handles keepalive, client should be stateless
+        max: 5, // ⚡ Stateless Mode: Max 5 is safer for Free Tier
+        idleTimeoutMillis: 0, // 0 = Close immediately (No Zombies)
+        connectionTimeoutMillis: 20000,
+        allowExitOnIdle: true,
+        keepAlive: false,
         ssl: { rejectUnauthorized: false }
     }
     : {

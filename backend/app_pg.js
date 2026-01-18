@@ -493,6 +493,60 @@ app.post('/api/bonds', async (req, res) => {
 app.get('/api/dashboard', async (req, res) => {
     const { startDate, endDate, companyId } = req.query;
 
+    // 🚀 CACHE-FIRST STRATEGY (Ultra Performance)
+    if (DataCache.isLoaded) {
+        try {
+            console.log('🚀 Calculating dashboard stats from Memory Cache...');
+            let invoices = DataCache.getInvoices({ startDate, endDate, companyId });
+
+            // 1. General Stats
+            const total_invoices = invoices.length;
+            const total_revenue = invoices.reduce((sum, inv) => sum + (parseFloat(inv.total_after_tax) || 0), 0);
+            const total_vat = invoices.reduce((sum, inv) => sum + (parseFloat(inv.vat_amount) || 0), 0);
+            const total_companies = DataCache.getCompanies().length;
+
+            // 2. Monthly Revenue
+            const monthlyMap = {};
+            invoices.forEach(inv => {
+                const month = inv.date.substring(0, 7); // YYYY-MM
+                monthlyMap[month] = (monthlyMap[month] || 0) + (parseFloat(inv.total_after_tax) || 0);
+            });
+            const monthly_revenue = Object.keys(monthlyMap)
+                .sort()
+                .slice(-6) // Last 6 months
+                .map(month => ({ month, revenue: monthlyMap[month] }));
+
+            // 3. Company Revenue
+            const companyMap = {};
+            invoices.forEach(inv => {
+                // Find company name in cache if not present in invoice object (depends on DataCache structure, usually joined?)
+                // Actually DataCache.getInvoices might return raw invoice objects. 
+                // We need to look up company name.
+                let companyName = 'Unknown';
+                const comp = DataCache.getCompanies().find(c => c.id == inv.company_id);
+                if (comp) companyName = comp.name;
+
+                if (!companyMap[companyName]) {
+                    companyMap[companyName] = { company_name: companyName, revenue: 0, invoice_count: 0 };
+                }
+                companyMap[companyName].revenue += (parseFloat(inv.total_after_tax) || 0);
+                companyMap[companyName].invoice_count++;
+            });
+            const company_revenue = Object.values(companyMap)
+                .sort((a, b) => b.revenue - a.revenue)
+                .slice(0, 10);
+
+            return res.json({
+                stats: { total_invoices, total_revenue, total_vat, total_companies },
+                monthly_revenue,
+                company_revenue
+            });
+        } catch (memErr) {
+            console.warn('⚠️ Error calculating stats from cache, falling back to DB:', memErr.message);
+        }
+    }
+
+    // Fallback: Direct DB Query (Original Logic)
     let where = '1=1';
     const params = [];
     let paramCounter = 1;
@@ -502,10 +556,10 @@ app.get('/api/dashboard', async (req, res) => {
     if (companyId) { where += ` AND i.company_id = $${paramCounter++}`; params.push(companyId); }
 
     try {
+        console.log('⚠️ Fetching dashboard stats from DB (Cache Miss)...');
         const statsRes = await db.query(`SELECT COUNT(*) as total_invoices, SUM(total_after_tax) as total_revenue, SUM(vat_amount) as total_vat FROM invoices i WHERE ${where}`, params);
         const companyCountRes = await db.query('SELECT COUNT(*) as total_companies FROM companies');
 
-        // Postgres date truncation: date_trunc('month', i.date) or to_char(i.date, 'YYYY-MM')
         const monthlyRes = await db.query(`SELECT to_char(i.date, 'YYYY-MM') as month, SUM(total_after_tax) as revenue FROM invoices i WHERE ${where} GROUP BY month ORDER BY month DESC LIMIT 6`, params);
 
         const byCompanyRes = await db.query(`SELECT c.name as company_name, SUM(i.total_after_tax) as revenue, COUNT(i.id) as invoice_count FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} GROUP BY c.id, c.name ORDER BY revenue DESC LIMIT 10`, params);
