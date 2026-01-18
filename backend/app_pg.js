@@ -6,10 +6,24 @@ const db = require('./db'); // Use the new PG module
 const QRCode = require('qrcode');
 
 const app = express();
+let isDbReady = false; // 🚦 Global flag to control traffic
 
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// 🛡️ Gatekeeper Middleware: Prevent Retry Storms
+app.use((req, res, next) => {
+    // Whitelist static resources and initial check routes
+    const isStatic = req.path.match(/\.(css|js|jpg|png|html)$/) || req.path.startsWith('/css') || req.path.startsWith('/js');
+    if (isStatic) return next();
+
+    if (!isDbReady) {
+        console.warn('⚠️ Request rejected: Server is warming up');
+        return res.status(503).json({ error: 'System is warming up, please retry in 5 seconds...', retryAfter: 5 });
+    }
+    next();
+});
 
 // Configure session for production
 // نستخدم MemoryStore حالياً لضمان أسرع أداء ممكن في تسجيل الدخول
@@ -616,9 +630,16 @@ app.listen(PORT, async () => {
             }
 
             console.log('✅ Database is warm and ready!');
+            isDbReady = true; // 🟢 Open the gates
+            console.log('🟢 Traffic enabled - System Ready');
         } catch (err) {
             console.error('⚠️  Initial connection failed - will retry on first query');
             console.error('   Error:', err.message);
+            // Even if warm-up fails, let traffic in after a delay to allow retries
+            setTimeout(() => {
+                isDbReady = true;
+                console.log('🟠 Traffic enabled (Fallback mode)');
+            }, 5000);
         }
     })();
 

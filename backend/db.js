@@ -20,13 +20,14 @@ if (connectionString) {
     console.error("❌ No DATABASE_URL found!");
 }
 
-// 2️⃣ إعدادات Pool بسيطة ومباشرة (Transaction Mode Optimized)
+// 2️⃣ إعدادات Pool قوية (High Availability Config)
+// بناءً على التوصيات: رفعنا العدد والوقت لتفادي الـ Timeouts أثناء الـ Warm-up
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 3, // عدد معتدل لتفادي الـ limits
-        idleTimeoutMillis: 10000,
-        connectionTimeoutMillis: 5000, // Fail fast
+        max: 20, // زيادة العدد لأن Transaction Mode بيتحمل
+        idleTimeoutMillis: 30000, // 30 ثانية
+        connectionTimeoutMillis: 40000, // 40 ثانية (أعطه وقته عشان يوصل)
         ssl: { rejectUnauthorized: false }
     }
     : {
