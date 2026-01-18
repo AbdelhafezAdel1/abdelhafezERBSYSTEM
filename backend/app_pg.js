@@ -1,9 +1,3 @@
-// 🔴 FORCE IPV4 — MUST BE FIRST
-const dns = require('dns');
-if (dns.setDefaultResultOrder) {
-    dns.setDefaultResultOrder('ipv4first');
-}
-
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
