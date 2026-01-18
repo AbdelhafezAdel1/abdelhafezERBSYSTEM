@@ -7,9 +7,21 @@ require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 let connectionString = process.env.DATABASE_URL;
 
 console.log('🔌 DB Config Check:');
+console.log('🔌 DB Config Check:');
 if (connectionString) {
+    // Log the resolved host to ensure env var is read correctly
+    try {
+        const url = new URL(connectionString);
+        console.log(`   Target Host: ${url.hostname}`);
+        console.log(`   Target Port: ${url.port}`);
+        console.log(`   Using SSL: true`);
+    } catch(e) {
+        console.log('   Could not parse URL details');
+    }
+    
+    // Safety mask for password
     const safeConnString = connectionString.replace(/:[^:@]+@/, ':***@');
-    console.log(`   Target Connection: ${safeConnString}`);
+    console.log(`   Full Connection String: ${safeConnString}`);
 
     if (connectionString.includes('6543')) {
         console.log("✅ Using Transaction Pooler (Port 6543) with Non-Blocking Strategy");
@@ -27,7 +39,8 @@ const poolConfig = connectionString
         max: 3, // Small pool for free tier
         min: 1, // Keep 1 connection warm
         idleTimeoutMillis: 30000, // 30s
-        connectionTimeoutMillis: 60000, // 60s for cold starts
+        idleTimeoutMillis: 30000, // 30s
+        connectionTimeoutMillis: 120000, // 2 minutes (Final attempt before confirming IP block)
         allowExitOnIdle: false, // Keep pool alive
         keepAlive: true, // TCP keep-alive
         keepAliveInitialDelayMillis: 10000, // 10s
