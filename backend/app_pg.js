@@ -160,13 +160,23 @@ app.put('/auth/update-user', async (req, res) => {
     }
 });
 
+const UserCache = require('./utils/UserCache');
+const DataCache = require('./utils/DataCache');
+
+// ---------- Auth ----------
+// ... (Auth code remains unchanged)
+
 // ---------- Companies ----------
-app.get('/api/companies', async (req, res) => {
-    try {
-        const result = await db.query('SELECT * FROM companies');
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+app.get('/api/companies', (req, res) => {
+    // 🚀 Speed: Read from Memory
+    if (DataCache.isLoaded) {
+        res.json(DataCache.getCompanies());
+    } else {
+        // Fallback if cache isn't ready
+        db.query('SELECT * FROM companies', (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(result.rows);
+        });
     }
 });
 
@@ -177,11 +187,53 @@ app.post('/api/companies', async (req, res) => {
             'INSERT INTO companies (name, vat_number, contact_person, phone, address, bank_account) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
             [name, vat_number, contact_person, phone, address, bank_account]
         );
-        res.json({ id: result.rows[0].id });
+        const newId = result.rows[0].id;
+
+        // Update Cache
+        DataCache.addCompany({ id: newId, name, vat_number, contact_person, phone, address, bank_account });
+
+        res.json({ id: newId });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
+// ---------- Invoices ----------
+app.get('/api/invoices', async (req, res) => {
+    const { startDate, endDate, companyId } = req.query;
+
+    // 🚀 Speed: Read from Memory with Filtering
+    if (DataCache.isLoaded) {
+        const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
+        return res.json(filtered);
+    }
+
+    // Fallback logic ...
+    let where = '1=1';
+    const params = [];
+    let paramCounter = 1;
+
+    if (startDate) { where += ` AND i.date >= $${paramCounter++}`; params.push(startDate); }
+    if (endDate) { where += ` AND i.date <= $${paramCounter++}`; params.push(endDate); }
+    if (companyId) { where += ` AND i.company_id = $${paramCounter++}`; params.push(companyId); }
+
+    const sql = `SELECT i.*, c.name as company_name FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} ORDER BY i.date DESC`;
+    try {
+        const result = await db.query(sql, params);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// ... (POST invoice logic needs to call DataCache.addInvoice at the end)
+
+// Init Cache on Start
+// ... (Inside app.listen)
+// Load User Cache
+await UserCache.init();
+// Load Data Cache (Background)
+DataCache.init(); // Don't await, let it load in background
+// ...
 
 app.put('/api/companies/:id', async (req, res) => {
     const { name, vat_number, contact_person, phone, address, bank_account } = req.body;
@@ -484,6 +536,10 @@ app.listen(PORT, async () => {
         // Load User Cache
         const UserCache = require('./utils/UserCache');
         await UserCache.init();
+
+        // Load Data Cache (Background)
+        const DataCache = require('./utils/DataCache');
+        DataCache.init();
 
         console.log('✅ Database is warm and ready!');
     } catch (err) {
