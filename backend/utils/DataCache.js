@@ -35,7 +35,7 @@ class DataCache {
             this.bonds = bondsRes.rows;
 
             this.isLoaded = true;
-            console.log(`✅ DataCache loaded: ${this.companies.length} companies, ${this.invoices.length} invoices.`);
+            console.log(`✅ تم استرجاع جميع الفواتير والبيانات من قاعدة البيانات بنجاح: ${this.companies.length} شركة, ${this.invoices.length} فاتورة.`);
         } catch (err) {
             console.error('❌ Failed to load DataCache (Data might be stale or empty):', err.message);
         }
@@ -111,6 +111,52 @@ class DataCache {
         const company = this.companies.find(c => c.id == bond.company_id);
         if (company) bond.company_name = company.name;
         this.bonds.unshift(bond);
+    }
+
+    // --- Dashboard Stats (Calculated in Memory) ---
+    getDashboardStats(filters = {}) {
+        // Filter invoices first
+        const filteredInvoices = this.getInvoices(filters);
+
+        // Calculate Totals
+        const total_invoices = filteredInvoices.length;
+        const total_revenue = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_after_tax || 0), 0);
+        const total_vat = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.vat_amount || 0), 0);
+        const total_companies = this.companies.length;
+
+        // Calculate Monthly Revenue (Last 6 months)
+        // Group by YYYY-MM
+        const monthlyMap = {};
+        filteredInvoices.forEach(inv => {
+            const date = new Date(inv.date);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            monthlyMap[key] = (monthlyMap[key] || 0) + parseFloat(inv.total_after_tax || 0);
+        });
+
+        // Convert Map to sorted Array
+        const monthly_revenue = Object.keys(monthlyMap)
+            .sort().reverse().slice(0, 6)
+            .map(key => ({ month: key, revenue: monthlyMap[key] }));
+
+        // Calculate Company Revenue (Top 10)
+        const companyMap = {};
+        filteredInvoices.forEach(inv => {
+            if (!companyMap[inv.company_name]) {
+                companyMap[inv.company_name] = { company_name: inv.company_name, revenue: 0, invoice_count: 0 };
+            }
+            companyMap[inv.company_name].revenue += parseFloat(inv.total_after_tax || 0);
+            companyMap[inv.company_name].invoice_count++;
+        });
+
+        const company_revenue = Object.values(companyMap)
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 10);
+
+        return {
+            stats: { total_invoices, total_revenue, total_vat, total_companies },
+            monthly_revenue,
+            company_revenue
+        };
     }
 }
 

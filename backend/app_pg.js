@@ -1,8 +1,6 @@
-// app_pg.js – PostgreSQL implementation
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
-const compression = require('compression');
 const path = require('path');
 const db = require('./db'); // Use the new PG module
 const QRCode = require('qrcode');
@@ -10,7 +8,6 @@ const QRCode = require('qrcode');
 const app = express();
 
 // Middleware
-app.use(compression()); // 🚀 ضغط البيانات لتسريع النقل
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -410,6 +407,12 @@ app.put('/api/invoices/:id', async (req, res) => {
 
 // ---------- Bonds ----------
 app.get('/api/bonds', async (req, res) => {
+    // 🚀 Speed: Read from Memory
+    if (DataCache.isLoaded) {
+        return res.json(DataCache.getBonds());
+    }
+
+    // Fallback
     try {
         const result = await db.query(`SELECT b.*, c.name as company_name FROM bonds b JOIN companies c ON b.company_id = c.id ORDER BY b.date DESC`);
         res.json(result.rows);
@@ -423,6 +426,10 @@ app.post('/api/bonds', async (req, res) => {
     try {
         const result = await db.query(`INSERT INTO bonds (company_id, type, amount, date, notes) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
             [company_id, type, amount, date, notes]);
+
+        // Update Cache
+        DataCache.addBond({ id: result.rows[0].id, company_id, type, amount, date, notes });
+
         res.json({ id: result.rows[0].id });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -432,6 +439,13 @@ app.post('/api/bonds', async (req, res) => {
 // ---------- Dashboard ----------
 app.get('/api/dashboard', async (req, res) => {
     const { startDate, endDate, companyId } = req.query;
+
+    // 🚀 Speed: Calculate Stats in Memory
+    if (DataCache.isLoaded) {
+        return res.json(DataCache.getDashboardStats({ startDate, endDate, companyId }));
+    }
+
+    // Fallback logic (Old SQL way) ...
     let where = '1=1';
     const params = [];
     let paramCounter = 1;
