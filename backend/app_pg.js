@@ -205,7 +205,9 @@ app.get('/api/invoices', async (req, res) => {
 
     const sql = `SELECT i.*, c.name as company_name FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} ORDER BY i.date DESC`;
     try {
+        console.log('🔄 Fetching invoices...');
         const result = await db.query(sql, params);
+        console.log(`✅ Loaded ${result.rows.length} invoices.`);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
