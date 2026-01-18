@@ -2,92 +2,63 @@ const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
-// 🔌 FINAL SOLUTION: Transaction Pooler (Port 6543)
-// This uses Supabase's IPv4 Pooler to bypass Render's IPv6 issues
-let connectionString = process.env.DATABASE_URL;
+// 🔌 FINAL CONFIG: DIRECT CONNECTION (IPv4 Force)
+// This config relies on the DNS fix in app_pg.js
+const connectionString = process.env.DATABASE_URL;
 
 console.log('🔌 DB Config Check:');
 if (connectionString) {
-    // Safety mask for password
     const safeConnString = connectionString.replace(/:[^:@]+@/, ':***@');
-    console.log(`   Full Connection String: ${safeConnString}`);
+    console.log(`   Target: ${safeConnString}`);
 
-    if (connectionString.includes('6543')) {
-        console.log("✅ Using Transaction Pooler (Port 6543)");
-    } else if (connectionString.includes('pooler.supabase.com')) {
-        console.log("⚠️ Pooler URL detected but port might not be 6543. Check configuration.");
+    if (connectionString.includes('pooler')) {
+        console.warn("⚠️ Warning: You are using Pooler URL. Direct Connection (db...supabase.co) is recommended with IPv4 fix.");
     } else {
-        console.warn("⚠️ WARNING: Should be using Port 6543 for Render compatibility");
+        console.log("✅ Using Direct Connection (Recommended)");
     }
-} else {
-    console.error("❌ No DATABASE_URL found!");
 }
 
-// 🛡️ Optimized Pool Config for Transaction Pooler
+// 🛡️ Robust Pool Config for Direct Connection
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        // 🔥 STABILITY SETTINGS FOR FREE TIER (Pooler)
-        max: 2, // Keep concurrency very low to avoid rejection
-        min: 0, // Don't hold idle connections
-        idleTimeoutMillis: 5000, // Close idle connections FAST (5s) to avoid "terminated" errors
-        connectionTimeoutMillis: 10000, // Fail fast (10s) so retry logic works
-        allowExitOnIdle: true, // Allow Node to exit if pool is empty
+        max: 3, // Low max for free tier
+        min: 0, // Don't hold connections
+        idleTimeoutMillis: 5000, // Close idle fast
+        connectionTimeoutMillis: 10000, // Fast fail
+        allowExitOnIdle: true,
         ssl: {
             rejectUnauthorized: false
         }
     }
     : {
-        // Fallback for local dev
         connectionString: process.env.DATABASE_URL,
         ssl: { rejectUnauthorized: false }
     };
 
-// Create the pool
 const pool = new Pool(poolConfig);
 
-// Global Error Handler
 pool.on('error', (err) => {
-    console.error('❌ Unexpected error on idle client', err.message);
+    console.error('❌ DB Pool Error:', err.message);
 });
 
 pool.on('connect', () => {
-    console.log('🔌 New client connected to pool');
+    console.log('🔌 DB Connected');
 });
 
-/* -------------------------------------------------------------------------- */
-/*                               Helper Functions                             */
-/* -------------------------------------------------------------------------- */
-
+// Helper Functions
 async function query(text, params) {
-    // Simplified Retry Logic for Pooler
-    const maxRetries = 3;
-    let lastError;
-
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const result = await pool.query(text, params);
-            return result;
-        } catch (err) {
-            lastError = err;
-
-            // Non-retryable errors
-            if (!err.message.includes('timeout') &&
-                !err.message.includes('connection') &&
-                !err.message.includes('ETIMEDOUT') &&
-                !err.message.includes('ECONNRESET')) {
-                throw err;
-            }
-
-            if (i < maxRetries - 1) {
-                const delay = 1000 * Math.pow(2, i); // Faster retry for pooler
-                console.warn(`⚠️ Query failed (attempt ${i + 1}/${maxRetries}): ${err.message}`);
-                await new Promise(r => setTimeout(r, delay));
-            }
+    try {
+        return await pool.query(text, params);
+    } catch (err) {
+        // Retry logic for 1 time only to keep it simple
+        if (err.message.includes('timeout') || err.message.includes('connection')) {
+            console.log(`⚠️ Retry query due to ${err.message}`);
+            await new Promise(r => setTimeout(r, 1000));
+            return await pool.query(text, params);
         }
+        throw err;
     }
-    console.error(`❌ Query failed after ${maxRetries} attempts:`, lastError.message);
-    throw lastError;
 }
 
 async function getClient() {
@@ -96,11 +67,11 @@ async function getClient() {
 
 async function testConnection() {
     try {
-        const res = await pool.query('SELECT NOW()');
-        console.log('✅ DB Connection Test Passed:', res.rows[0].now);
+        await pool.query('SELECT 1');
+        console.log('✅ DB Connection Verified');
         return true;
     } catch (err) {
-        console.error('❌ DB Connection Test Failed:', err.message);
+        console.error('❌ DB Connection Failed:', err.message);
         return false;
     }
 }
