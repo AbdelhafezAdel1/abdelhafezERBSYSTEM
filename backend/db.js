@@ -14,10 +14,10 @@ if (connectionString) {
     console.log('   Host:', host);
 
     // محاولة تحويل من pooler إلى direct connection إذا كان pooler يفشل
-    // Supabase pooler يستخدم port 6543 أو pooler. في نهاية الـ host
-    if (host.includes('pooler') || connectionString.includes(':6543')) {
-        console.log('   ⚠️  Detected pooler connection - will try direct connection on timeout');
-        // نحفظ connection string الأصلي للاستخدام المباشر
+    // Supabase pooler يستخدم port 6543 (Transaction Mode) أو 5432 (Session Mode)
+    // نعتبر 6543 هو اللي محتاج Fallback، لكن 5432 مستقر عادة
+    if (connectionString.includes(':6543')) {
+        console.log('   ⚠️  Detected Transaction Pooler (6543) - will try Session Mode (5432) on timeout');
     }
 } else {
     console.log('   Type: Individual Vars (Fallback)');
@@ -149,8 +149,8 @@ async function query(text, params) {
             lastError = err;
             console.error(`محاولة ${i + 1}/${maxRetries} فشلت:`, err.message);
 
-            // إذا كان timeout وكان pooler، جرب direct connection بعد عدة محاولات
-            if (err.message.includes('timeout') && !useDirectConnection && connectionString && (connectionString.includes('pooler') || connectionString.includes(':6543')) && i >= 2) {
+            // إذا كان timeout وكان transaction pooler (6543)، جرب session mode (5432)
+            if (err.message.includes('timeout') && !useDirectConnection && connectionString && connectionString.includes(':6543') && i >= 2) {
                 console.log('⚠️  Timeout detected after multiple attempts, trying direct connection...');
                 useDirectConnection = true;
                 const directUrl = convertToDirectConnection(connectionString);
@@ -193,8 +193,8 @@ async function getClient() {
             lastError = err;
             console.error(`محاولة ${i + 1}/${maxRetries} للحصول على client فشلت:`, err.message);
 
-            // إذا كان timeout وكان pooler، جرب direct connection بعد عدة محاولات
-            if (err.message.includes('timeout') && !useDirectConnection && connectionString && (connectionString.includes('pooler') || connectionString.includes(':6543')) && i >= 2) {
+            // إذا كان timeout وكان transaction pooler (6543)، جرب session mode (5432)
+            if (err.message.includes('timeout') && !useDirectConnection && connectionString && connectionString.includes(':6543') && i >= 2) {
                 console.log('⚠️  Timeout detected after multiple attempts, trying direct connection...');
                 useDirectConnection = true;
                 const directUrl = convertToDirectConnection(connectionString);
