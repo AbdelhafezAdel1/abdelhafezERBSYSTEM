@@ -14,9 +14,14 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // 🛡️ Gatekeeper Middleware: Prevent Retry Storms
 app.use((req, res, next) => {
-    // Whitelist static resources and initial check routes
+    // Whitelist static resources
     const isStatic = req.path.match(/\.(css|js|jpg|png|html)$/) || req.path.startsWith('/css') || req.path.startsWith('/js');
     if (isStatic) return next();
+
+    // ALLOW Login and Auth routes even during warm-up (Frontend handles loading state)
+    if (req.path === '/login.html' || req.path.startsWith('/auth/')) {
+        return next();
+    }
 
     if (!isDbReady) {
         console.warn('⚠️ Request rejected: Server is warming up');
