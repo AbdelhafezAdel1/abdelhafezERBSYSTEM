@@ -1,5 +1,19 @@
 // 🔴 FORCE IPV4 — MUST BE FIRST
 const dns = require('dns');
+
+// Override dns.lookup to allow only IPv4 (Fixes Render/Supabase ENETUNREACH)
+const originalLookup = dns.lookup;
+dns.lookup = (hostname, options, callback) => {
+    if (typeof options === 'function') {
+        callback = options;
+        options = {};
+    }
+    options = options || {};
+    // Force IPv4
+    options.family = 4;
+    return originalLookup(hostname, options, callback);
+};
+
 if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
 }
