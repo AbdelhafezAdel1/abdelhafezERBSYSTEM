@@ -47,6 +47,12 @@ const poolConfig = connectionString
             rejectUnauthorized: false,
             // Increase compatibility
             checkServerIdentity: () => undefined
+        },
+        // 🔥 CRITICAL FIX: Force IPv4 to avoid ENETUNREACH (IPv6) errors
+        host: undefined, // When connectionString is present, host is extracted from it. Setting to undefined prevents pg from trying to resolve it separately.
+        // Force the socket to use IPv4
+        socketParams: {
+            family: 4
         }
     }
     : {
