@@ -35,16 +35,17 @@ app.use(session({
     store: new pgSession({
         pool: db.getPool(), // Use existing connection pool
         tableName: 'session', // Default table name
-        createTableIfMissing: true // Auto-create table if it doesn't exist
+        createTableIfMissing: true, // Auto-create table if it doesn't exist
+        pruneSessionInterval: 60 * 60 // Prune every hour instead of default to save DB ops
     }),
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
     rolling: true,
     cookie: {
-        secure: isProduction, // true in production (HTTPS)
+        secure: isProduction, // Set to true only if confident in HTTPS/Proxy setup
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'lax', // Required for some browsers
         maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     }
 }));
