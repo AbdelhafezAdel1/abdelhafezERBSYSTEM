@@ -167,8 +167,13 @@ app.put('/auth/update-user', async (req, res) => {
 
 // ---------- Companies ----------
 app.get('/api/companies', (req, res) => {
+    console.log('🔄 Fetching companies from DB...');
     db.query('SELECT * FROM companies ORDER BY name', (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) {
+            console.error('❌ Error fetching companies:', err.message);
+            return res.status(500).json({ error: err.message });
+        }
+        console.log(`✅ Fetched ${result.rows.length} companies.`);
         res.json(result.rows);
     });
 });
@@ -205,9 +210,17 @@ app.get('/api/invoices', async (req, res) => {
 
     const sql = `SELECT i.*, c.name as company_name FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} ORDER BY i.date DESC`;
     try {
-        console.log('🔄 Fetching invoices...');
+        console.log('🔄 Fetching invoices with params:', params);
         const result = await db.query(sql, params);
-        console.log(`✅ Loaded ${result.rows.length} invoices.`);
+        console.log(`✅ Fetched ${result.rows.length} invoices from DB.`);
+
+        // Debug: Check if companies exist
+        if (result.rows.length === 0) {
+            const countCompanies = await db.query('SELECT COUNT(*) FROM companies');
+            const countInvoices = await db.query('SELECT COUNT(*) FROM invoices');
+            console.log(`⚠️ Debug Stats: Companies=${countCompanies.rows[0].count}, Invoices=${countInvoices.rows[0].count}`);
+        }
+
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -534,7 +547,8 @@ app.listen(PORT, async () => {
         // Load User Cache
         await UserCache.init();
 
-
+        // Load Data Cache (Companies, Invoices, Bonds)
+        await DataCache.init();
 
         console.log('✅ Database is warm and ready!');
 

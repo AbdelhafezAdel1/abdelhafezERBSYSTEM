@@ -36,14 +36,13 @@ const poolConfig = connectionString
 
 // إعدادات محسّنة لحل مشكلة sleep والاتصال مع Supabase
 // إعدادات صارمة للخطط المجانية (Render + Supabase)
-poolConfig.max = 1; // 🔥 اتصال واحد فقط! لمنع التزاحم وضياع الوقت في المصافحة
+poolConfig.max = 5; // 🔥 التعديل المقترح: 5 اتصالات (أفضل من 1 للتعامل مع الطلبات المتزامنة)
 poolConfig.min = 1; // إبقاء هذا الاتصال مفتوحاً دائماً
-poolConfig.idleTimeoutMillis = 0; // 0 تعني عدم إغلاق الاتصال أبداً بسبب الخمول
-poolConfig.connectionTimeoutMillis = 20000; // تقليل مهلة الاتصال لعدم الانتظار طويلاً (Fail Fast)
-
-poolConfig.keepAlive = true; // إبقاء الاتصال نشط
-poolConfig.keepAliveInitialDelayMillis = 0; // بدء keep-alive فوراً
-poolConfig.allowExitOnIdle = true; // السماح بالخروج عند الخمول (توفير موارد)
+poolConfig.idleTimeoutMillis = 30000; // 30 ثانية
+poolConfig.connectionTimeoutMillis = 5000; // 5 ثواني
+poolConfig.keepAlive = true;
+poolConfig.keepAliveInitialDelayMillis = 0;
+poolConfig.allowExitOnIdle = false; // عدم السماح بالخروج التلقائي للحفاظ على الاتصال نشطاً
 
 // إنشاء pool واحد فقط (singleton)
 let pool = null;
