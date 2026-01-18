@@ -1,4 +1,4 @@
-// 🔥 CRITICAL: Force IPv4 resolution MUST be the first lines
+// 🔴 FORCE IPV4 — MUST BE FIRST
 const dns = require('dns');
 if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');

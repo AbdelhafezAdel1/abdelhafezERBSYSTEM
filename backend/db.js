@@ -1,3 +1,14 @@
+// 🔴 FORCE IPV4 — MUST BE FIRST
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
+// Temporary Debug: Verify DNS resolution
+dns.lookup('db.dywmmrhbjrhbjatrsqhy.supabase.co', (err, address, family) => {
+    console.log('🔍 DNS Debug - Resolved:', address, 'Family:', family);
+});
+
 const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
