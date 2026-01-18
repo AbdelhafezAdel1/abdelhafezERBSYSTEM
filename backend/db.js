@@ -26,8 +26,8 @@ const poolConfig = connectionString
     ? {
         connectionString: connectionString,
         max: 5, // Strict limit for free tier
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 30000,
+        idleTimeoutMillis: 60000, // Increased to 60s
+        connectionTimeoutMillis: 60000, // Increased to 60s to handle cold starts
         allowExitOnIdle: false, // Don't close idle connections in Session Mode
         keepAlive: true, // Crucial for 5432 stability
         keepAliveInitialDelayMillis: 10000,
@@ -52,6 +52,11 @@ pool.on('error', (err) => {
     // لا نقوم بأي أكشن هنا، نترك الـ Pool يتعامل
 });
 
+// تتبع إنشاء الاتصالات الجديد
+pool.on('connect', () => {
+    console.log('🔌 New client connected to pool');
+});
+
 /* -------------------------------------------------------------------------- */
 /*                               Helper Functions                             */
 /* -------------------------------------------------------------------------- */
@@ -59,7 +64,7 @@ pool.on('error', (err) => {
 async function query(text, params) {
     // Smart Retry Logic with Exponential Backoff
     // لحل مشكلة "Retry Storm" وإعطاء الشبكة فرصة للتعافي
-    const maxRetries = 3;
+    const maxRetries = 5; // Increased to 5
     let lastError;
 
     for (let i = 0; i < maxRetries; i++) {
@@ -71,13 +76,19 @@ async function query(text, params) {
             console.warn(`⚠️ Query failed (attempt ${i + 1}/${maxRetries}): ${err.message}`);
 
             // لو الخطأ ليس له علاقة بالاتصال (مثلاً SQL Syntax)، ارمي الخطأ فوراً
-            if (!err.message.includes('timeout') && !err.message.includes('connection') && !err.message.includes('57P01')) {
+            // added 'ETIMEDOUT' and 'ECONNRESET' to retryable errors
+            if (!err.message.includes('timeout') &&
+                !err.message.includes('connection') &&
+                !err.message.includes('57P01') &&
+                !err.message.includes('ETIMEDOUT') &&
+                !err.message.includes('ECONNRESET')) {
                 throw err;
             }
 
-            // Exponential Backoff: انتظر (1s, 2s, 4s)
+            // Exponential Backoff: انتظر (2s, 4s, 8s, 16s, 32s)
             if (i < maxRetries - 1) {
-                const delay = 1000 * Math.pow(2, i);
+                const delay = 2000 * Math.pow(2, i);
+                console.log(`⏳ Waiting ${delay}ms before retry...`);
                 await new Promise(r => setTimeout(r, delay));
             }
         }

@@ -25,22 +25,27 @@ app.use((req, res, next) => {
     next();
 });
 
-// Configure session for production
-// نستخدم MemoryStore حالياً لضمان أسرع أداء ممكن في تسجيل الدخول
-// هذا يزيل التأخير الناتج عن الاتصال بقاعدة البيانات البعيدة لحفظ الجلسة
+// Configure session for production with Redis-like persistence via PostgreSQL
+const pgSession = require('connect-pg-simple')(session);
+
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
 
 app.use(session({
+    store: new pgSession({
+        pool: db.getPool(), // Use existing connection pool
+        tableName: 'session', // Default table name
+        createTableIfMissing: true // Auto-create table if it doesn't exist
+    }),
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
     rolling: true,
     cookie: {
-        secure: isProduction, // true in production (HTTPS), false in development
+        secure: isProduction, // true in production (HTTPS)
         httpOnly: true,
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     }
 }));
 
@@ -90,20 +95,8 @@ const SEED_USER = {
 };
 
 // التحقق من وجود المستخدم وإنشائه إذا لم يكن موجوداً
-(async () => {
-    try {
-        const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
-        if (result.rows.length === 0) {
-            await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
-                [SEED_USER.username, SEED_USER.password]);
-            console.log('✅ تم إنشاء المستخدم الافتراضي:', SEED_USER.username);
-        } else {
-            console.log('✅ المستخدم موجود:', SEED_USER.username);
-        }
-    } catch (err) {
-        console.error('❌ خطأ في إنشاء المستخدم:', err.message);
-    }
-})();
+// SEED_USER check moved to warmUpDatabase
+
 
 const UserCache = require('./utils/UserCache');
 const DataCache = require('./utils/DataCache');
@@ -666,7 +659,21 @@ async function warmUpDatabase() {
     await retryOperation('User Cache', async () => await UserCache.init());
     await retryOperation('Data Cache', async () => await DataCache.init());
 
-    // 3. Optimize (Optional)
+    // 3. Ensure Admin User Exists (moved from top-level)
+    try {
+        const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
+        if (result.rows.length === 0) {
+            await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
+                [SEED_USER.username, SEED_USER.password]);
+            console.log('✅ Default user created:', SEED_USER.username);
+        } else {
+            console.log('✅ Default user verified:', SEED_USER.username);
+        }
+    } catch (err) {
+        console.warn('⚠️ User seed failed (non-critical):', err.message);
+    }
+
+    // 4. Optimize (Optional)
     try {
         await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
     } catch (err) { /* Strict mode ignore */ }
