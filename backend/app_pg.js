@@ -507,7 +507,14 @@ app.get('/api/dashboard', async (req, res) => {
             // 2. Monthly Revenue
             const monthlyMap = {};
             invoices.forEach(inv => {
-                const month = inv.date.substring(0, 7); // YYYY-MM
+                // Fix: Handle Date objects from PG driver
+                let dateStr;
+                if (inv.date instanceof Date) {
+                    dateStr = inv.date.toISOString();
+                } else {
+                    dateStr = String(inv.date);
+                }
+                const month = dateStr.substring(0, 7); // YYYY-MM
                 monthlyMap[month] = (monthlyMap[month] || 0) + (parseFloat(inv.total_after_tax) || 0);
             });
             const monthly_revenue = Object.keys(monthlyMap)
