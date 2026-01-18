@@ -32,14 +32,16 @@ if (connectionString) {
     console.error("❌ No database configuration found! Set DATABASE_URL or DB_* vars");
 }
 
-// 🛡️ Pool Config optimized for free tier
+// 🛡️ Pool Config optimized for Render + Supabase
 const poolConfig = {
     connectionString: connectionString,
-    max: 3,                         // Low max for free tier
+    max: 2,                         // Very low for free tier
     min: 0,                         // Don't hold connections
-    idleTimeoutMillis: 10000,       // Close idle connections fast
-    connectionTimeoutMillis: 15000, // Longer timeout for DNS resolution
-    allowExitOnIdle: true,
+    idleTimeoutMillis: 30000,       // 30s - Keep connections longer
+    connectionTimeoutMillis: 30000, // 30s - Longer timeout for slow networks
+    query_timeout: 20000,           // 20s query timeout
+    statement_timeout: 20000,       // 20s statement timeout
+    allowExitOnIdle: false,         // Keep pool alive
     ssl: {
         rejectUnauthorized: false
     }

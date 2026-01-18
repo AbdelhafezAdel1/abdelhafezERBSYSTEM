@@ -616,12 +616,12 @@ app.use((req, res, next) => {
 
 async function warmUpDatabase() {
     console.log('🚀 Server starting with ZERO database dependencies...');
-    console.log('⏳ Database initialization will begin in 5 seconds...');
+    console.log('⏳ Database initialization will begin in 15 seconds...');
 
     // Mark as ready immediately - no blocking
     isDbReady = true;
 
-    // Wait 5 seconds before attempting ANY database operations
+    // Wait 15 seconds before attempting ANY database operations
     // This gives Render and Supabase time to stabilize the connection
     setTimeout(async () => {
         console.log('🔄 Starting background database initialization...');
@@ -680,7 +680,7 @@ async function startServer() {
                     console.warn('⚠️ Heartbeat failed:', e.message);
                 }
             }
-        }, 20000); // Every 20 seconds
+        }, 60000); // Every 60 seconds (reduced frequency for free tier)
     });
 
     // 2. Initialize Database in Background (completely async, no blocking)
