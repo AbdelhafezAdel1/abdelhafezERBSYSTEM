@@ -53,15 +53,17 @@ function createPoolConfig(connString) {
             }
         };
 
-    // إعدادات محسّنة للخطط المجانية (Render + Supabase) - "وضع الطابور الواحد"
-    baseConfig.max = 1; // 🛑 اتصال واحد فقط لا غير!
-    baseConfig.min = 0;
-    baseConfig.idleTimeoutMillis = 5000; // إغلاق الاتصال بسرعة لإتاحته لغيره
-    baseConfig.connectionTimeoutMillis = 15000; // 15 ثانية كافية (لو زادت يبقى في مشكلة شبكة)
-    baseConfig.allowExitOnIdle = true;
+    // إعدادات محسّنة للخطط المجانية (Balance Mode)
+    // 3 اتصالات: كافية للتزامن وآمنة من الحد الأقصى
+    baseConfig.max = 3;
+    baseConfig.min = 1; // الاتفاظ باتصال واحد مفتوح دائماً للسرعة
+    baseConfig.idleTimeoutMillis = 30000; // 30 ثانية قبل الإغلاق
+    baseConfig.connectionTimeoutMillis = 10000; // 10 ثواني مهلة انتظار فتح الخط
+    baseConfig.allowExitOnIdle = false; // لا تغلق الاتصال عند الخمول (خليك جاهز)
 
-    // إزالة keep-alive المعقد لتقليل العبء
-    // baseConfig.keepAlive = true; 
+    // تفعيل keep-alive للحفاظ على الخط سخن
+    baseConfig.keepAlive = true;
+    baseConfig.keepAliveInitialDelayMillis = 10000;
 
     return baseConfig;
 
