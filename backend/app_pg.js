@@ -569,21 +569,40 @@ app.listen(PORT, async () => {
     // Warm-up Database Connection
     try {
         console.log('🔥 Warming up database connection...');
-        await db.query('SELECT 1');
+        
+        // التحقق من الاتصال مع إعادة المحاولة
+        const isConnected = await db.ensureConnection(10);
+        if (!isConnected) {
+            console.error('❌ Critical: Cannot establish database connection. Application will continue but may have issues.');
+        } else {
+            // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
+            try {
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
+                console.log('⚡ Database indexes verified for maximum speed.');
+            } catch (indexErr) {
+                console.error('⚠️  Error creating indexes (may be expected on first run):', indexErr.message);
+            }
 
-        // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
-        await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-        await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
-        await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
-        console.log('⚡ Database indexes verified for maximum speed.');
+            // Load User Cache
+            try {
+                await UserCache.init();
+                console.log('✅ User cache loaded');
+            } catch (cacheErr) {
+                console.error('⚠️  Error loading user cache:', cacheErr.message);
+            }
 
-        // Load User Cache
-        await UserCache.init();
+            // Load Data Cache (Companies, Invoices, Bonds)
+            try {
+                await DataCache.init();
+                console.log('✅ Data cache loaded');
+            } catch (dataErr) {
+                console.error('⚠️  Error loading data cache:', dataErr.message);
+            }
 
-        // Load Data Cache (Companies, Invoices, Bonds)
-        await DataCache.init();
-
-        console.log('✅ Database is warm and ready!');
+            console.log('✅ Database is warm and ready!');
+        }
 
         // 🛡️ Heartbeat: Keep DB connection alive FOREVER
         // ينفذ استعلام بسيط كل 25 ثانية لمنع قطع الاتصال
