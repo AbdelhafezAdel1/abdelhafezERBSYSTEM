@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
+const compression = require('compression'); // 🚀 استعادة الضغط للسرعة
 const path = require('path');
 const db = require('./db'); // Use the new PG module
 const QRCode = require('qrcode');
@@ -8,6 +9,7 @@ const QRCode = require('qrcode');
 const app = express();
 
 // Middleware
+app.use(compression()); // ضغط النتائج (JSON) لتسريع الظهور
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -525,12 +527,31 @@ app.listen(PORT, async () => {
         console.log('🔥 Warming up database connection...');
         await db.query('SELECT 1');
 
+        // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
+        console.log('⚡ Database indexes verified for maximum speed.');
+
         // Load User Cache
         await UserCache.init();
 
 
 
         console.log('✅ Database is warm and ready!');
+
+        // 🛡️ Heartbeat: Keep DB connection alive FOREVER
+        // ينفذ استعلام بسيط كل 25 ثانية لمنع قطع الاتصال
+        setInterval(async () => {
+            try {
+                await db.query('SELECT 1');
+                // console.log('💓 DB Heartbeat sent'); // Uncomment for debug
+            } catch (err) {
+                console.error('💔 DB Heartbeat failed:', err.message);
+                // In case of failure, usually the next query will trigger reconnection logic in pool
+            }
+        }, 25000); // 25 seconds
+
     } catch (err) {
         console.error('⚠️ Database warm-up failed:', err.message);
     }
