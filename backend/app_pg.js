@@ -12,29 +12,32 @@ let isDbReady = false; // 🚦 Flag to track DB readiness (for logging only)
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configure session for production with Redis-like persistence via PostgreSQL
-const pgSession = require('connect-pg-simple')(session);
+// 🔥 CRITICAL: Serve static files BEFORE session middleware
+// This allows login page, CSS, JS, images to load even if DB is not connected
+app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
+app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
+app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
+app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
+// 🚀 INSTANT STARTUP: Use memory session store instead of PostgreSQL
+// This removes database dependency during server startup
+// For production with multiple instances, consider Redis or sticky sessions
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
 
 app.use(session({
-    store: new pgSession({
-        pool: db.getPool(), // Use existing connection pool
-        tableName: 'session', // Default table name
-        createTableIfMissing: true, // Auto-create table if it doesn't exist
-        pruneSessionInterval: 60 * 60 // Prune every hour instead of default to save DB ops
-    }),
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
     rolling: true,
     cookie: {
-        secure: isProduction, // Set to true only if confident in HTTPS/Proxy setup
+        secure: isProduction,
         httpOnly: true,
-        sameSite: 'lax', // Required for some browsers
+        sameSite: 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     }
+    // Note: Using default memory store for instant startup
+    // Sessions will be lost on server restart, but server starts immediately
 }));
 
 // Authentication middleware - protect index.html
@@ -44,13 +47,6 @@ const requireAuth = (req, res, next) => {
     }
     res.redirect('/login.html');
 };
-
-// Serve login page without auth
-app.use('/login.html', express.static(path.join(__dirname, '../frontend/login.html')));
-app.use('/css', express.static(path.join(__dirname, '../frontend/css')));
-app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
-app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
-app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
 // Helper: ZATCA TLV QR generator
 function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat) {
@@ -597,63 +593,62 @@ app.use((req, res, next) => {
 });
 
 
+
 async function warmUpDatabase() {
-    console.log('🔥 Starting database warm-up (Non-Blocking - Background)...');
+    console.log('🚀 Server starting with ZERO database dependencies...');
+    console.log('⏳ Database initialization will begin in 5 seconds...');
 
-    try {
-        // 1. Quick Connection Check (single attempt, no retries)
-        await db.query('SELECT 1');
-        console.log('🟢 Database connected successfully (Port 6543)');
-        isDbReady = true;
+    // Mark as ready immediately - no blocking
+    isDbReady = true;
 
-        // 2. Load Caches in Background (don't block on failures)
-        console.log('🔄 Loading caches in background...');
+    // Wait 5 seconds before attempting ANY database operations
+    // This gives Render and Supabase time to stabilize the connection
+    setTimeout(async () => {
+        console.log('🔄 Starting background database initialization...');
 
-        // Load User Cache
-        UserCache.init().catch(err => {
-            console.warn('⚠️ User Cache failed to load:', err.message);
-        });
-
-        // Load Data Cache
-        DataCache.init().catch(err => {
-            console.warn('⚠️ Data Cache failed to load:', err.message);
-        });
-
-        // 3. Ensure Admin User Exists (non-critical)
         try {
-            const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
-            if (result.rows.length === 0) {
-                await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
-                    [SEED_USER.username, SEED_USER.password]);
-                console.log('✅ Default user created:', SEED_USER.username);
-            } else {
-                console.log('✅ Default user verified:', SEED_USER.username);
-            }
+            // Quick connection test
+            await db.query('SELECT 1');
+            console.log('✅ Database connected successfully');
+
+            // Load caches (non-blocking)
+            UserCache.init().then(() => {
+                console.log('✅ User cache loaded');
+            }).catch(err => {
+                console.warn('⚠️ User cache failed:', err.message);
+            });
+
+            DataCache.init().then(() => {
+                console.log('✅ Data cache loaded');
+            }).catch(err => {
+                console.warn('⚠️ Data cache failed:', err.message);
+            });
+
+            // Ensure admin user (non-blocking)
+            db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username])
+                .then(result => {
+                    if (result.rows.length === 0) {
+                        return db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
+                            [SEED_USER.username, SEED_USER.password]);
+                    }
+                })
+                .then(() => console.log('✅ Admin user verified'))
+                .catch(err => console.warn('⚠️ Admin user check failed:', err.message));
+
         } catch (err) {
-            console.warn('⚠️ User seed failed (non-critical):', err.message);
+            console.error('⚠️ Database initialization failed:', err.message);
+            console.log('💡 Server will continue - database will retry on first request');
         }
-
-        // 4. Create Index (Optional, non-blocking)
-        try {
-            await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-        } catch (err) { /* Ignore */ }
-
-        console.log('✅ Database warm-up completed (cache loading in background)');
-    } catch (err) {
-        console.error('❌ Database connection failed:', err.message);
-        console.error('⚠️ Server will continue but may have degraded performance');
-        // Don't throw - let server continue with direct DB queries
-    }
+    }, 5000); // Wait 5 seconds before ANY database operation
 }
 
 async function startServer() {
     const PORT = process.env.PORT || 3100;
 
-    // 1. Start Server Immediately (Satisfy Render/Health Checks)
-    // This prevents "No open ports detected" error and deployment failure
+    // 1. Start Server IMMEDIATELY (no dependencies)
     app.listen(PORT, () => {
         console.log(`🚀 ERP System Server running on port ${PORT}`);
-        console.log('⏳ Server started. Connecting to Database in background...');
+        console.log('✅ Server is LIVE and accepting requests immediately!');
 
         // Heartbeat to keep connection active (prevents idle disconnection)
         setInterval(async () => {
@@ -668,11 +663,10 @@ async function startServer() {
         }, 20000); // Every 20 seconds
     });
 
-    // 2. Warm up Database in Background
+    // 2. Initialize Database in Background (completely async, no blocking)
     warmUpDatabase().catch(err => {
-        console.error('❌ Critical Database Startup Error:', err.message);
-        console.error('👉 TIP: Check your Supabase "Network Restrictions" (allow 0.0.0.0/0)');
-        console.error('👉 TIP: Verify DATABASE_URL and credentials in .env file');
+        console.error('❌ Background initialization error:', err.message);
+        // Server continues running regardless
     });
 }
 
