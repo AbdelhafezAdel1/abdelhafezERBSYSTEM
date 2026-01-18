@@ -604,19 +604,15 @@ app.listen(PORT, async () => {
         }
     })();
 
-        // 🛡️ Heartbeat: Keep DB connection alive FOREVER
-        // ينفذ استعلام بسيط كل 25 ثانية لمنع قطع الاتصال
-        setInterval(async () => {
-            try {
-                await db.query('SELECT 1');
-                // console.log('💓 DB Heartbeat sent'); // Uncomment for debug
-            } catch (err) {
-                console.error('💔 DB Heartbeat failed:', err.message);
-                // In case of failure, usually the next query will trigger reconnection logic in pool
-            }
-        }, 25000); // 25 seconds
-
-    } catch (err) {
-        console.error('⚠️ Database warm-up failed:', err.message);
-    }
+    // 🛡️ Heartbeat: Keep DB connection alive FOREVER
+    // ينفذ استعلام بسيط كل 25 ثانية لمنع قطع الاتصال
+    setInterval(async () => {
+        try {
+            await db.query('SELECT 1');
+            // console.log('💓 DB Heartbeat sent'); // Uncomment for debug
+        } catch (err) {
+            console.error('💔 DB Heartbeat failed:', err.message);
+            // In case of failure, usually the next query will trigger reconnection logic in pool
+        }
+    }, 25000); // 25 seconds
 });
