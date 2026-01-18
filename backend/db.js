@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
-// 1️⃣ استخدام متغير البيئة كما هو (بدون تعديل) - الالتزام التام بالـ Transaction Pooler (6543)
+// 1️⃣ استخدام متغير البيئة كما هو - Port 5432 (Session Mode)
 const connectionString = process.env.DATABASE_URL;
 
 console.log('🔌 DB Config Check:');
@@ -12,9 +12,9 @@ if (connectionString) {
     console.log(`   Connection String: ${safeConnString}`);
 
     if (connectionString.includes('6543')) {
-        console.log("🟢 PostgreSQL connected via Supabase Transaction Pooler (6543)");
+        console.log("⚠️ Transaction Pooler (6543) detected.");
     } else {
-        console.log("⚠️ Connection string does not appear to be port 6543. Using whatever provided.");
+        console.log("🔵 Using Direct Connection / Session Mode (5432).");
     }
 } else {
     console.error("❌ No DATABASE_URL found!");
@@ -26,10 +26,11 @@ const poolConfig = connectionString
     ? {
         connectionString: connectionString,
         max: 5, // Strict limit for free tier
-        idleTimeoutMillis: 30000, // 30s as requested
-        connectionTimeoutMillis: 30000, // 30s as requested
-        allowExitOnIdle: true,
-        keepAlive: false,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 30000,
+        allowExitOnIdle: false, // Don't close idle connections in Session Mode
+        keepAlive: true, // Crucial for 5432 stability
+        keepAliveInitialDelayMillis: 10000,
         ssl: { rejectUnauthorized: false }
     }
     : {

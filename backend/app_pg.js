@@ -693,6 +693,7 @@ async function startServer() {
         console.error('❌ Failed to start server:', err.message);
         process.exit(1); // Exit if we can't connect to DB
     }
+
 }
 
 startServer();
