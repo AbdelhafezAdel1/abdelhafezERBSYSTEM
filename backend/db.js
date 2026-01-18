@@ -35,13 +35,13 @@ const poolConfig = connectionString
     };
 
 // إعدادات محسّنة لحل مشكلة sleep والاتصال مع Supabase
-// إعدادات صارمة للخطط المجانية (Render + Supabase)
-poolConfig.max = 5; // 🔥 التعديل المقترح: 5 اتصالات (أفضل من 1 للتعامل مع الطلبات المتزامنة)
+// إعدادات محسّنة للخطط المجانية (Render + Supabase)
+poolConfig.max = 5; // 5 اتصالات للتعامل مع الطلبات المتزامنة
 poolConfig.min = 1; // إبقاء هذا الاتصال مفتوحاً دائماً
 poolConfig.idleTimeoutMillis = 30000; // 30 ثانية
-poolConfig.connectionTimeoutMillis = 2000; // 2 ثانية (Fail Fast)
+poolConfig.connectionTimeoutMillis = 30000; // 30 ثانية (زيادة من 2 ثانية لحل مشكلة timeout)
 poolConfig.keepAlive = true;
-poolConfig.keepAliveInitialDelayMillis = 0;
+poolConfig.keepAliveInitialDelayMillis = 10000; // 10 ثواني
 poolConfig.allowExitOnIdle = false; // عدم السماح بالخروج التلقائي للحفاظ على الاتصال نشطاً
 
 // إنشاء pool واحد فقط (singleton)
@@ -64,7 +64,7 @@ function getPool() {
             console.log('⚠ تم إزالة اتصال من pool');
         });
 
-        // Test connection on startup
+        // Test connection on startup (non-blocking)
         pool.query('SELECT NOW()')
             .then(() => console.log('✓ Database connected successfully'))
             .catch(err => console.error('✗ Database connection error:', err.message));
@@ -85,9 +85,10 @@ async function query(text, params) {
             lastError = err;
             console.error(`محاولة ${i + 1}/${maxRetries} فشلت:`, err.message);
 
-            // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة
+            // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة (exponential backoff)
             if (i < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                const delay = Math.min(1000 * Math.pow(2, i), 10000); // Max 10 seconds
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
     }
@@ -95,9 +96,28 @@ async function query(text, params) {
     throw lastError;
 }
 
-// دالة للحصول على client من pool (للمعاملات)
+// دالة للحصول على client من pool (للمعاملات) مع إعادة المحاولة
 async function getClient() {
-    return await getPool().connect();
+    const maxRetries = 3;
+    let lastError;
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const client = await getPool().connect();
+            return client;
+        } catch (err) {
+            lastError = err;
+            console.error(`محاولة ${i + 1}/${maxRetries} للحصول على client فشلت:`, err.message);
+            
+            // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة (exponential backoff)
+            if (i < maxRetries - 1) {
+                const delay = Math.min(2000 * Math.pow(2, i), 15000); // Max 15 seconds
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+
+    throw lastError;
 }
 
 // تنظيف عند إغلاق التطبيق
