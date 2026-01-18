@@ -227,13 +227,6 @@ app.get('/api/invoices', async (req, res) => {
 });
 // ... (POST invoice logic needs to call DataCache.addInvoice at the end)
 
-// Init Cache on Start
-// ... (Inside app.listen)
-// Load User Cache
-await UserCache.init();
-// Load Data Cache (Background)
-DataCache.init(); // Don't await, let it load in background
-// ...
 
 app.put('/api/companies/:id', async (req, res) => {
     const { name, vat_number, contact_person, phone, address, bank_account } = req.body;
