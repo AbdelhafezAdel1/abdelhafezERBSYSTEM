@@ -6,29 +6,11 @@ const db = require('./db'); // Use the new PG module
 const QRCode = require('qrcode');
 
 const app = express();
-let isDbReady = false; // 🚦 Global flag to control traffic
+let isDbReady = false; // 🚦 Flag to track DB readiness (for logging only)
 
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// 🛡️ Gatekeeper Middleware: Prevent Retry Storms
-app.use((req, res, next) => {
-    // Whitelist static resources
-    const isStatic = req.path.match(/\.(css|js|jpg|png|html)$/) || req.path.startsWith('/css') || req.path.startsWith('/js');
-    if (isStatic) return next();
-
-    // ALLOW Login and Auth routes even during warm-up (Frontend handles loading state)
-    if (req.path === '/login.html' || req.path.startsWith('/auth/')) {
-        return next();
-    }
-
-    if (!isDbReady) {
-        console.warn('⚠️ Request rejected: Server is warming up');
-        return res.status(503).json({ error: 'System is warming up, please retry in 5 seconds...', retryAfter: 5 });
-    }
-    next();
-});
 
 // Configure session for production with Redis-like persistence via PostgreSQL
 const pgSession = require('connect-pg-simple')(session);
@@ -614,59 +596,54 @@ app.use((req, res, next) => {
     next();
 });
 
-// Helper for retries
-const retryOperation = async (operationName, operationFn, retries = 5, delay = 2000) => {
-    for (let i = 0; i < retries; i++) {
-        try {
-            await operationFn();
-            console.log(`✅ ${operationName} success.`);
-            return true;
-        } catch (err) {
-            console.warn(`⚠️ ${operationName} failed (attempt ${i + 1}/${retries}): ${err.message}`);
-            if (i < retries - 1) await new Promise(r => setTimeout(r, delay));
-        }
-    }
-    console.error(`❌ ${operationName} failed after ${retries} attempts.`);
-    throw new Error(`${operationName} failed`);
-};
-
-// Global flag isDbReady is already defined at top of file
 
 async function warmUpDatabase() {
-    console.log('🔥 Starting database warm-up (Blocking)...');
+    console.log('🔥 Starting database warm-up (Non-Blocking - Background)...');
 
-    // 1. Check Connectivity
-    await retryOperation('DB Connection Check', async () => {
+    try {
+        // 1. Quick Connection Check (single attempt, no retries)
         await db.query('SELECT 1');
-    });
-    console.log('🟢 PostgreSQL connected via Supabase Transaction Pooler (Port 6543) - Keep-Alive Enabled');
+        console.log('🟢 Database connected successfully (Port 6543)');
+        isDbReady = true;
 
-    // 2. Load Critical Caches
-    console.log('🔄 Loading all users, companies, and invoices into cache...');
-    await retryOperation('User Cache', async () => await UserCache.init());
-    await retryOperation('Data Cache', async () => await DataCache.init());
+        // 2. Load Caches in Background (don't block on failures)
+        console.log('🔄 Loading caches in background...');
 
-    // 3. Ensure Admin User Exists (moved from top-level)
-    try {
-        const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
-        if (result.rows.length === 0) {
-            await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
-                [SEED_USER.username, SEED_USER.password]);
-            console.log('✅ Default user created:', SEED_USER.username);
-        } else {
-            console.log('✅ Default user verified:', SEED_USER.username);
+        // Load User Cache
+        UserCache.init().catch(err => {
+            console.warn('⚠️ User Cache failed to load:', err.message);
+        });
+
+        // Load Data Cache
+        DataCache.init().catch(err => {
+            console.warn('⚠️ Data Cache failed to load:', err.message);
+        });
+
+        // 3. Ensure Admin User Exists (non-critical)
+        try {
+            const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
+            if (result.rows.length === 0) {
+                await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
+                    [SEED_USER.username, SEED_USER.password]);
+                console.log('✅ Default user created:', SEED_USER.username);
+            } else {
+                console.log('✅ Default user verified:', SEED_USER.username);
+            }
+        } catch (err) {
+            console.warn('⚠️ User seed failed (non-critical):', err.message);
         }
+
+        // 4. Create Index (Optional, non-blocking)
+        try {
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
+        } catch (err) { /* Ignore */ }
+
+        console.log('✅ Database warm-up completed (cache loading in background)');
     } catch (err) {
-        console.warn('⚠️ User seed failed (non-critical):', err.message);
+        console.error('❌ Database connection failed:', err.message);
+        console.error('⚠️ Server will continue but may have degraded performance');
+        // Don't throw - let server continue with direct DB queries
     }
-
-    // 4. Optimize (Optional)
-    try {
-        await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-    } catch (err) { /* Strict mode ignore */ }
-
-    isDbReady = true;
-    console.log('✅ Database is warm and ready!');
 }
 
 async function startServer() {
