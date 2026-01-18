@@ -45,13 +45,16 @@ function createPoolConfig(connString) {
         };
 
     // إعدادات محسّنة للخطط المجانية (Render + Supabase)
-    baseConfig.max = 5; // زيادة عدد الاتصالات للسرعة
-    baseConfig.min = 1; // إبقاء اتصال واحد مفتوح دائماً
+    baseConfig.max = 1; // اتصال واحد فقط لتقليل الضغط على pooler
+    baseConfig.min = 0; // السماح بإغلاق الاتصالات عند عدم الحاجة
     baseConfig.idleTimeoutMillis = 30000; // 30 ثانية
-    baseConfig.connectionTimeoutMillis = 10000; // 10 ثواني (fail fast - أفضل من الانتظار طويلاً)
+    baseConfig.connectionTimeoutMillis = 90000; // 90 ثانية (زيادة كبيرة جداً لحل timeout)
     baseConfig.keepAlive = true;
-    baseConfig.keepAliveInitialDelayMillis = 5000; // 5 ثواني
-    baseConfig.allowExitOnIdle = false; // عدم السماح بالإغلاق للحفاظ على الاتصال
+    baseConfig.keepAliveInitialDelayMillis = 30000; // 30 ثانية
+    baseConfig.allowExitOnIdle = true; // السماح بالإغلاق لتقليل الضغط
+    
+    // إعدادات إضافية للاتصال
+    baseConfig.statement_timeout = 30000; // 30 ثانية للـ query
     
     return baseConfig;
 }
@@ -60,40 +63,23 @@ function createPoolConfig(connString) {
 function convertToDirectConnection(url) {
     if (!url) return url;
     
-    try {
-        // استبدال pooler بـ direct connection
-        // من: aws-1-ap-south-1.pooler.supabase.com:6543
-        // إلى: aws-1-ap-south-1.supabase.co:5432
-        
-        // طريقة 1: استبدال .pooler.supabase.com بـ .supabase.co
-        let directUrl = url.replace(/\.pooler\.supabase\.com/g, '.supabase.co');
-        
-        // طريقة 2: إذا لم يتغير، جرب استبدال pooler. فقط
-        if (directUrl === url && url.includes('pooler')) {
-            directUrl = url.replace(/pooler\./g, '');
-            // إذا كان pooler. في البداية، قد نحتاج استبدال أفضل
-            if (directUrl.includes('.supabase.com')) {
-                directUrl = directUrl.replace(/\.supabase\.com/g, '.supabase.co');
-            }
-        }
-        
-        // استبدال port 6543 بـ 5432
-        if (directUrl.includes(':6543')) {
-            directUrl = directUrl.replace(/:6543/g, ':5432');
-        }
-        
-        // التأكد من تغيير الـ URL
-        if (directUrl !== url) {
-            console.log('   Converted pooler URL to direct connection');
-            console.log('   From:', url.substring(0, 50) + '...');
-            console.log('   To:', directUrl.substring(0, 50) + '...');
-        }
-        
+    // ببساطة: استبدال port 6543 بـ 5432 على نفس الـ host
+    // Supabase pooler يستخدم port 6543 والـ direct connection يستخدم نفس الـ host لكن port 5432
+    if (url.includes(':6543')) {
+        const directUrl = url.replace(':6543', ':5432');
+        console.log('   Converting pooler port 6543 to direct connection port 5432...');
         return directUrl;
-    } catch (err) {
-        console.error('   Error converting URL:', err.message);
-        return url; // إرجاع URL الأصلي عند الخطأ
     }
+    
+    // إذا كان pooler بدون port محدد، أضف port 5432
+    if (url.includes('pooler') && !url.match(/:\d+/)) {
+        // استبدال pooler.domain: أو pooler.domain/ بـ pooler.domain:5432/
+        const directUrl = url.replace(/(pooler[^\/:]*)(\/|$)/, '$1:5432$2');
+        console.log('   Adding direct connection port 5432 to pooler URL...');
+        return directUrl;
+    }
+    
+    return url;
 }
 
 const poolConfig = createPoolConfig(connectionString);
@@ -134,50 +120,22 @@ function getPool() {
             console.log('⚠ تم إزالة اتصال من pool');
         });
 
-        // Test connection on startup (non-blocking)
+        // Test connection on startup (non-blocking, silent failure)
         pool.query('SELECT NOW()')
             .then((result) => {
-                console.log('✓ Database connected successfully');
-                console.log('   Server time:', result.rows[0].now);
-                console.log('   Connection type:', useDirectConnection ? 'Direct' : (connectionString?.includes('pooler') ? 'Pooler' : 'Unknown'));
+                console.log('✓ Database pool initialized successfully');
             })
             .catch(err => {
-                console.error('✗ Database connection error:', err.message);
-                console.error('   Error code:', err.code || 'N/A');
-                
-                // إذا كان pooler يفشل، حاول direct connection
-                if (!useDirectConnection && connectionString && connectionString.includes('pooler')) {
-                    console.log('⚠️  Trying direct connection as fallback...');
-                    useDirectConnection = true;
-                    const directUrl = convertToDirectConnection(connectionString);
-                    if (directUrl && directUrl !== connectionString) {
-                        console.log('   Converting URL from pooler to direct connection...');
-                        if (pool) {
-                            pool.end().catch(() => {});
-                        }
-                        const directConfig = createPoolConfig(directUrl);
-                        pool = new Pool(directConfig);
-                        pool.query('SELECT NOW()')
-                            .then((result) => {
-                                console.log('✓ Direct connection successful');
-                                console.log('   Server time:', result.rows[0].now);
-                            })
-                            .catch(e => {
-                                console.error('✗ Direct connection also failed:', e.message);
-                                console.error('   Error code:', e.code || 'N/A');
-                            });
-                    } else {
-                        console.error('   Could not convert pooler URL to direct connection');
-                    }
-                }
+                // لا نطبع خطأ هنا لأن الاتصال سيُعاد المحاولة عند أول query
+                // console.error('⚠️  Initial pool connection test failed (will retry on first query):', err.message);
             });
     }
     return pool;
 }
 
-// دالة للاستعلام مع إعادة المحاولة الذكية
+// دالة للاستعلام مع إعادة المحاولة
 async function query(text, params) {
-    const maxRetries = 3; // تقليل المحاولات للسرعة
+    const maxRetries = 5; // زيادة عدد المحاولات
     let lastError;
 
     for (let i = 0; i < maxRetries; i++) {
@@ -186,31 +144,31 @@ async function query(text, params) {
             return result;
         } catch (err) {
             lastError = err;
-            
-            // إذا كان timeout وكان pooler، جرب direct connection فوراً
-            if ((err.message.includes('timeout') || err.message.includes('Connection terminated')) && 
-                !useDirectConnection && 
-                connectionString && 
-                connectionString.includes('pooler')) {
-                console.log('⚠️  Pooler timeout detected, switching to direct connection...');
+            console.error(`محاولة ${i + 1}/${maxRetries} فشلت:`, err.message);
+
+            // إذا كان timeout وكان pooler، جرب direct connection بعد عدة محاولات
+            if (err.message.includes('timeout') && !useDirectConnection && connectionString && (connectionString.includes('pooler') || connectionString.includes(':6543')) && i >= 2) {
+                console.log('⚠️  Timeout detected after multiple attempts, trying direct connection...');
                 useDirectConnection = true;
                 const directUrl = convertToDirectConnection(connectionString);
                 if (directUrl && directUrl !== connectionString) {
+                    console.log('   Converting pooler URL to direct connection...');
                     if (pool) {
                         pool.end().catch(() => {});
                         pool = null;
                     }
                     const directConfig = createPoolConfig(directUrl);
                     pool = new Pool(directConfig);
-                    console.log('🔄 Switched to direct connection, retrying...');
-                    // أعد المحاولة فوراً بدون تأخير
-                    continue;
+                    console.log('🔄 Switched to direct connection, retrying query...');
+                    continue; // أعد المحاولة مع الاتصال الجديد
+                } else {
+                    console.log('   ⚠️  Could not convert URL format');
                 }
             }
 
-            // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة
+            // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة (exponential backoff)
             if (i < maxRetries - 1) {
-                const delay = 1000 * (i + 1); // تأخير بسيط: 1s, 2s, 3s
+                const delay = Math.min(2000 * Math.pow(2, i), 15000); // Max 15 seconds
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -221,7 +179,7 @@ async function query(text, params) {
 
 // دالة للحصول على client من pool (للمعاملات) مع إعادة المحاولة
 async function getClient() {
-    const maxRetries = 3;
+    const maxRetries = 5; // زيادة عدد المحاولات
     let lastError;
 
     for (let i = 0; i < maxRetries; i++) {
@@ -230,30 +188,32 @@ async function getClient() {
             return client;
         } catch (err) {
             lastError = err;
+            console.error(`محاولة ${i + 1}/${maxRetries} للحصول على client فشلت:`, err.message);
             
-            // إذا كان timeout وكان pooler، جرب direct connection فوراً
-            if ((err.message.includes('timeout') || err.message.includes('Connection terminated')) && 
-                !useDirectConnection && 
-                connectionString && 
-                connectionString.includes('pooler')) {
-                console.log('⚠️  Pooler timeout detected, switching to direct connection...');
+            // إذا كان timeout وكان pooler، جرب direct connection بعد عدة محاولات
+            if (err.message.includes('timeout') && !useDirectConnection && connectionString && (connectionString.includes('pooler') || connectionString.includes(':6543')) && i >= 2) {
+                console.log('⚠️  Timeout detected after multiple attempts, trying direct connection...');
                 useDirectConnection = true;
                 const directUrl = convertToDirectConnection(connectionString);
                 if (directUrl && directUrl !== connectionString) {
+                    console.log('   Converting pooler URL to direct connection...');
                     if (pool) {
                         pool.end().catch(() => {});
                         pool = null;
                     }
                     const directConfig = createPoolConfig(directUrl);
                     pool = new Pool(directConfig);
-                    console.log('🔄 Switched to direct connection, retrying...');
-                    continue;
+                    console.log('🔄 Switched to direct connection, retrying getClient...');
+                    continue; // أعد المحاولة مع الاتصال الجديد
+                } else {
+                    console.log('   ⚠️  Could not convert URL format');
                 }
             }
             
-            // تأخير بسيط قبل إعادة المحاولة
+            // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة (exponential backoff)
             if (i < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                const delay = Math.min(2000 * Math.pow(2, i), 15000); // Max 15 seconds
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
     }
@@ -278,28 +238,36 @@ process.on('SIGTERM', async () => {
     process.exit(0);
 });
 
-// دالة للتحقق من الاتصال بالداتابيس (سريعة - بدون retry)
+// دالة للتحقق من الاتصال بالداتابيس
 async function testConnection() {
     try {
+        // استخدام getPool مباشرة لتجنب retry logic في query
         const testPool = getPool();
-        // استخدام timeout قصير للسرعة
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Connection test timeout')), 5000)
-        );
-        const queryPromise = testPool.query('SELECT NOW()');
-        const result = await Promise.race([queryPromise, timeoutPromise]);
+        const result = await testPool.query('SELECT NOW() as current_time, version() as pg_version');
         console.log('✅ Connection test successful');
-        console.log('   Server time:', result.rows[0].now);
+        console.log('   Current time:', result.rows[0].current_time);
         console.log('   Connection type:', useDirectConnection ? 'Direct' : (connectionString?.includes('pooler') ? 'Pooler' : 'Unknown'));
         return true;
     } catch (err) {
+        console.error('❌ Connection test failed:', err.message);
+        console.error('   Error code:', err.code || 'N/A');
+        if (err.code) {
+            console.error('   PostgreSQL error code:', err.code);
+        }
         return false;
     }
+}
+
+// دالة للتحقق من الاتصال مع إعادة المحاولة (deprecated - لا تُستخدم بعد الآن)
+async function ensureConnection(maxAttempts = 10) {
+    // هذه الدالة غير مستخدمة الآن - الكود يحاول الاتصال عند أول query
+    return true;
 }
 
 module.exports = {
     query,
     getClient,
     getPool,
-    testConnection
+    testConnection,
+    ensureConnection
 };

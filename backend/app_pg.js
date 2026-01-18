@@ -566,41 +566,46 @@ const PORT = process.env.PORT || 3100;
 app.listen(PORT, async () => {
     console.log(`PostgreSQL Server running on http://localhost:${PORT}`);
 
-    // Warm-up Database Connection (non-blocking - لا يعلق التطبيق)
+    // Warm-up Database Connection (non-blocking)
     console.log('🔥 Starting database warm-up (non-blocking)...');
     
-    // تشغيل warm-up في الخلفية بدون انتظار
+    // محاولة اتصال سريعة (non-blocking)
     (async () => {
         try {
-            // محاولة واحدة سريعة
-            const connected = await db.testConnection();
-            if (connected) {
-                console.log('✅ Database connection ready');
-                
-                // إنشاء فهارس (في الخلفية)
-                db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`)
-                    .catch(() => {});
-                db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`)
-                    .catch(() => {});
-                db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`)
-                    .catch(() => {});
-
-                // تحميل Cache في الخلفية
-                UserCache.init().catch(err => {
-                    console.error('⚠️  Error loading user cache:', err.message);
-                });
-
-                DataCache.init().catch(err => {
-                    console.error('⚠️  Error loading data cache:', err.message);
-                });
-
-                console.log('✅ Database warm-up completed');
-            } else {
-                console.log('⚠️  Initial connection failed - will retry on first query');
+            // محاولة سريعة واحدة فقط
+            await db.query('SELECT 1');
+            console.log('✅ Database connection successful on startup');
+            
+            // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
+            try {
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
+                console.log('⚡ Database indexes verified for maximum speed.');
+            } catch (indexErr) {
+                console.error('⚠️  Error creating indexes (may be expected on first run):', indexErr.message);
             }
+
+            // Load User Cache
+            try {
+                await UserCache.init();
+                console.log('✅ User cache loaded');
+            } catch (cacheErr) {
+                console.error('⚠️  Error loading user cache:', cacheErr.message);
+            }
+
+            // Load Data Cache (Companies, Invoices, Bonds)
+            try {
+                await DataCache.init();
+                console.log('✅ Data cache loaded');
+            } catch (dataErr) {
+                console.error('⚠️  Error loading data cache:', dataErr.message);
+            }
+            
+            console.log('✅ Database is warm and ready!');
         } catch (err) {
-            console.error('⚠️  Database warm-up error:', err.message);
-            // التطبيق يستمر في العمل - الاتصال سيحاول مرة أخرى عند أول query
+            console.error('⚠️  Initial connection failed - will retry on first query');
+            console.error('   Error:', err.message);
         }
     })();
 
