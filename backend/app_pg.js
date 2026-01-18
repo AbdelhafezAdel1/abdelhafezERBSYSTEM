@@ -683,24 +683,28 @@ async function warmUpDatabase() {
 }
 
 async function startServer() {
-    try {
-        await warmUpDatabase();
+    const PORT = process.env.PORT || 3100;
 
-        const PORT = process.env.PORT || 3100;
-        app.listen(PORT, () => {
-            console.log(`🚀 ERP System Server running on port ${PORT}`);
-            console.log('🟢 Traffic enabled - System Ready');
+    // 1. Start Server Immediately (Satisfy Render/Health Checks)
+    // This prevents "No open ports detected" error and deployment failure
+    app.listen(PORT, () => {
+        console.log(`🚀 ERP System Server running on port ${PORT}`);
+        console.log('⏳ Server started. Connecting to Database in background...');
 
-            // Heartbeat to keep connection active
-            setInterval(async () => {
+        // Heartbeat to keep connection active
+        setInterval(async () => {
+            if (isDbReady) {
                 try { await db.query('SELECT 1'); } catch (e) { }
-            }, 25000);
-        });
-    } catch (err) {
-        console.error('❌ Failed to start server:', err.message);
-        process.exit(1); // Exit if we can't connect to DB
-    }
+            }
+        }, 25000);
+    });
 
+    // 2. Warm up Database in Background
+    warmUpDatabase().catch(err => {
+        console.error('❌ Critical Database Startup Error:', err.message);
+        console.error('👉 TIP: Check your Supabase "Network Restrictions" (allow 0.0.0.0/0)');
+        console.error('👉 TIP: Try using Port 6543 (Transaction Pooler) in DATABASE_URL');
+    });
 }
 
 startServer();
