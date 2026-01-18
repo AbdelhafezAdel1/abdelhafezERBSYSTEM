@@ -568,7 +568,7 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 3100;
 app.listen(PORT, async () => {
-    console.log(`PostgreSQL Server running on http://localhost:${PORT}`);
+    console.log(`🚀 ERP System Server running on port ${PORT}`);
 
     // Warm-up Database Connection (non-blocking)
     console.log('🔥 Starting database warm-up (non-blocking)...');
