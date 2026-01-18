@@ -566,43 +566,43 @@ const PORT = process.env.PORT || 3100;
 app.listen(PORT, async () => {
     console.log(`PostgreSQL Server running on http://localhost:${PORT}`);
 
-    // Warm-up Database Connection
-    try {
-        console.log('🔥 Warming up database connection...');
-        
-        // التحقق من الاتصال مع إعادة المحاولة
-        const isConnected = await db.ensureConnection(10);
-        if (!isConnected) {
-            console.error('❌ Critical: Cannot establish database connection. Application will continue but may have issues.');
-        } else {
-            // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
-            try {
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
-                console.log('⚡ Database indexes verified for maximum speed.');
-            } catch (indexErr) {
-                console.error('⚠️  Error creating indexes (may be expected on first run):', indexErr.message);
-            }
+    // Warm-up Database Connection (non-blocking - لا يعلق التطبيق)
+    console.log('🔥 Starting database warm-up (non-blocking)...');
+    
+    // تشغيل warm-up في الخلفية بدون انتظار
+    (async () => {
+        try {
+            // محاولة واحدة سريعة
+            const connected = await db.testConnection();
+            if (connected) {
+                console.log('✅ Database connection ready');
+                
+                // إنشاء فهارس (في الخلفية)
+                db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`)
+                    .catch(() => {});
+                db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`)
+                    .catch(() => {});
+                db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`)
+                    .catch(() => {});
 
-            // Load User Cache
-            try {
-                await UserCache.init();
-                console.log('✅ User cache loaded');
-            } catch (cacheErr) {
-                console.error('⚠️  Error loading user cache:', cacheErr.message);
-            }
+                // تحميل Cache في الخلفية
+                UserCache.init().catch(err => {
+                    console.error('⚠️  Error loading user cache:', err.message);
+                });
 
-            // Load Data Cache (Companies, Invoices, Bonds)
-            try {
-                await DataCache.init();
-                console.log('✅ Data cache loaded');
-            } catch (dataErr) {
-                console.error('⚠️  Error loading data cache:', dataErr.message);
-            }
+                DataCache.init().catch(err => {
+                    console.error('⚠️  Error loading data cache:', err.message);
+                });
 
-            console.log('✅ Database is warm and ready!');
+                console.log('✅ Database warm-up completed');
+            } else {
+                console.log('⚠️  Initial connection failed - will retry on first query');
+            }
+        } catch (err) {
+            console.error('⚠️  Database warm-up error:', err.message);
+            // التطبيق يستمر في العمل - الاتصال سيحاول مرة أخرى عند أول query
         }
+    })();
 
         // 🛡️ Heartbeat: Keep DB connection alive FOREVER
         // ينفذ استعلام بسيط كل 25 ثانية لمنع قطع الاتصال
