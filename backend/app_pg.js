@@ -93,6 +93,7 @@ const SEED_USER = {
 })();
 
 const UserCache = require('./utils/UserCache');
+const DataCache = require('./utils/DataCache');
 
 // ---------- Auth ----------
 app.post('/auth/login', async (req, res) => {
@@ -160,8 +161,7 @@ app.put('/auth/update-user', async (req, res) => {
     }
 });
 
-const UserCache = require('./utils/UserCache');
-const DataCache = require('./utils/DataCache');
+// UserCache and DataCache are already required above or will be moved there.
 
 // ---------- Auth ----------
 // ... (Auth code remains unchanged)
