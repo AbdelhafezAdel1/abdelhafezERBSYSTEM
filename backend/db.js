@@ -4,13 +4,20 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
 // Support both DATABASE_URL (Render/Supabase) and individual env vars
-// Support both DATABASE_URL (Render/Supabase) and individual env vars
-let connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
+
+// 🔥 Force fix for Render/Supabase Free Tier:
+// Even if Env Var says 6543 (Pooler), we FORCE 5432 (Session) for stability.
+let finalConnectionString = connectionString;
+if (finalConnectionString && finalConnectionString.includes(':6543')) {
+    console.log('🔧 Auto-fixing connection string: Switching from Pooler (6543) to Direct (5432)...');
+    finalConnectionString = finalConnectionString.replace(':6543', ':5432');
+}
 
 console.log('🔌 DB Config Check:');
-if (connectionString) {
+if (finalConnectionString) {
     console.log('   Type: Connection String (Found)');
-    const host = connectionString.split('@')[1]?.split(':')[0] || 'Unknown';
+    const host = finalConnectionString.split('@')[1]?.split(':')[0] || 'Unknown';
     console.log('   Host:', host);
 
     // محاولة تحويل من pooler إلى direct connection إذا كان pooler يفشل
@@ -85,7 +92,7 @@ function convertToDirectConnection(url) {
     return url;
 }
 
-const poolConfig = createPoolConfig(connectionString);
+const poolConfig = createPoolConfig(finalConnectionString);
 
 // إنشاء pool واحد فقط (singleton)
 let pool = null;
