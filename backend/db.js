@@ -1,18 +1,20 @@
 const { Pool } = require('pg');
 const path = require('path');
-// Load .env if exists (for local development), ignore if not found (for production/Render)
+// Load .env if exists
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
+
+// 🔥 FORCE OVERRIDE: Fix Render/Supabase Free Tier Port globally
+// We modify the checking source directly to ensure NO code uses the old port.
+if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes(':6543')) {
+    console.log('🔧 GLOBAL FIX: Overwriting process.env.DATABASE_URL to use port 5432 (Session Mode)');
+    process.env.DATABASE_URL = process.env.DATABASE_URL.replace(':6543', ':5432');
+}
 
 // Support both DATABASE_URL (Render/Supabase) and individual env vars
 const connectionString = process.env.DATABASE_URL;
 
-// 🔥 Force fix for Render/Supabase Free Tier:
-// Even if Env Var says 6543 (Pooler), we FORCE 5432 (Session) for stability.
+// We don't need 'finalConnectionString' logic anymore since we fixed the source.
 let finalConnectionString = connectionString;
-if (finalConnectionString && finalConnectionString.includes(':6543')) {
-    console.log('🔧 Auto-fixing connection string: Switching from Pooler (6543) to Direct (5432)...');
-    finalConnectionString = finalConnectionString.replace(':6543', ':5432');
-}
 
 console.log('🔌 DB Config Check:');
 if (finalConnectionString) {
