@@ -634,81 +634,65 @@ app.use((req, res, next) => {
     next();
 });
 
-const PORT = process.env.PORT || 3100;
-app.listen(PORT, async () => {
-    console.log(`🚀 ERP System Server running on port ${PORT}`);
-
-    // Warm-up Database Connection (non-blocking)
-    console.log('🔥 Starting database warm-up (non-blocking)...');
-
-    // محاولة اتصال سريعة (non-blocking)
-    // Warm-up Database Connection (Reliable Sequence)
-    console.log('🔥 Starting database warm-up...');
-
-    (async () => {
-        // Helper for retries
-        const retryOperation = async (operationName, operationFn, retries = 5, delay = 2000) => {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    await operationFn();
-                    console.log(`✅ ${operationName} success.`);
-                    return true;
-                } catch (err) {
-                    console.warn(`⚠️ ${operationName} failed (attempt ${i + 1}/${retries}): ${err.message}`);
-                    if (i < retries - 1) await new Promise(r => setTimeout(r, delay));
-                }
-            }
-            console.error(`❌ ${operationName} failed after ${retries} attempts.`);
-            return false;
-        };
-
-        // 1. Check Connectivity
-        const isConnected = await retryOperation('DB Connection Check', async () => await db.query('SELECT 1'));
-
-        if (isConnected) {
-            console.log('🟢 PostgreSQL connected via Supabase Transaction Pooler (6543)');
-
-            // 2. Load Critical Caches
-            console.log('🔄 Loading all users, companies, and invoices into cache...');
-            await retryOperation('User Cache', async () => await UserCache.init());
-            await retryOperation('Data Cache', async () => await DataCache.init());
-
-            // 3. Optimize (Optional)
-            try {
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-            } catch (err) { /* Strict mode ignore */ }
-
-            console.log('✅ Database is warm and ready!');
-            isDbReady = true; // 🟢 TRAFFIC ENABLED
-        } else {
-            console.error('❌ Critical: Warm-up failed. Traffic blocked. Retrying in background...');
-            // Continuous Retry Loop (Safe Mode) - Never enable traffic until ready
-            setInterval(async () => {
-                if (!isDbReady) {
-                    try {
-                        console.log('🔄 Background retry: Connecting...');
-                        await db.query('SELECT 1');
-                        await UserCache.init();
-                        await DataCache.init();
-                        isDbReady = true;
-                        console.log('✅ Database is warm and ready! (Recovered)');
-                    } catch (e) {
-                        console.warn('⚠️ Background retry failed, waiting...');
-                    }
-                }
-            }, 10000);
-        }
-    })();
-
-    // 🛡️ Heartbeat: Keep DB connection alive FOREVER
-    // ينفذ استعلام بسيط كل 25 ثانية لمنع قطع الاتصال
-    setInterval(async () => {
+// Helper for retries
+const retryOperation = async (operationName, operationFn, retries = 5, delay = 2000) => {
+    for (let i = 0; i < retries; i++) {
         try {
-            await db.query('SELECT 1');
-            // console.log('💓 DB Heartbeat sent'); // Uncomment for debug
+            await operationFn();
+            console.log(`✅ ${operationName} success.`);
+            return true;
         } catch (err) {
-            console.error('💔 DB Heartbeat failed:', err.message);
-            // In case of failure, usually the next query will trigger reconnection logic in pool
+            console.warn(`⚠️ ${operationName} failed (attempt ${i + 1}/${retries}): ${err.message}`);
+            if (i < retries - 1) await new Promise(r => setTimeout(r, delay));
         }
-    }, 25000); // 25 seconds
-});
+    }
+    console.error(`❌ ${operationName} failed after ${retries} attempts.`);
+    throw new Error(`${operationName} failed`);
+};
+
+// Global flag isDbReady is already defined at top of file
+
+async function warmUpDatabase() {
+    console.log('🔥 Starting database warm-up (Blocking)...');
+
+    // 1. Check Connectivity
+    await retryOperation('DB Connection Check', async () => {
+        await db.query('SELECT 1');
+    });
+    console.log('🟢 PostgreSQL connected via Supabase Transaction Pooler (6543)');
+
+    // 2. Load Critical Caches
+    console.log('🔄 Loading all users, companies, and invoices into cache...');
+    await retryOperation('User Cache', async () => await UserCache.init());
+    await retryOperation('Data Cache', async () => await DataCache.init());
+
+    // 3. Optimize (Optional)
+    try {
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
+    } catch (err) { /* Strict mode ignore */ }
+
+    isDbReady = true;
+    console.log('✅ Database is warm and ready!');
+}
+
+async function startServer() {
+    try {
+        await warmUpDatabase();
+
+        const PORT = process.env.PORT || 3100;
+        app.listen(PORT, () => {
+            console.log(`🚀 ERP System Server running on port ${PORT}`);
+            console.log('🟢 Traffic enabled - System Ready');
+
+            // Heartbeat to keep connection active
+            setInterval(async () => {
+                try { await db.query('SELECT 1'); } catch (e) { }
+            }, 25000);
+        });
+    } catch (err) {
+        console.error('❌ Failed to start server:', err.message);
+        process.exit(1); // Exit if we can't connect to DB
+    }
+}
+
+startServer();

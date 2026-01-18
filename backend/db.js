@@ -25,9 +25,9 @@ if (connectionString) {
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 5, // ⚡ Stateless Mode: Max 5 is safer for Free Tier
-        idleTimeoutMillis: 0, // 0 = Close immediately (No Zombies)
-        connectionTimeoutMillis: 20000,
+        max: 5, // Strict limit for free tier
+        idleTimeoutMillis: 30000, // 30s as requested
+        connectionTimeoutMillis: 30000, // 30s as requested
         allowExitOnIdle: true,
         keepAlive: false,
         ssl: { rejectUnauthorized: false }
