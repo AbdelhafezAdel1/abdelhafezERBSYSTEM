@@ -12,7 +12,7 @@ if (connectionString) {
     console.log('   Type: Connection String (Found)');
     const host = connectionString.split('@')[1]?.split(':')[0] || 'Unknown';
     console.log('   Host:', host);
-    
+
     // محاولة تحويل من pooler إلى direct connection إذا كان pooler يفشل
     // Supabase pooler يستخدم port 6543 أو pooler. في نهاية الـ host
     if (host.includes('pooler') || connectionString.includes(':6543')) {
@@ -44,25 +44,28 @@ function createPoolConfig(connString) {
             }
         };
 
-    // إعدادات محسّنة للخطط المجانية (Render + Supabase)
-    baseConfig.max = 1; // اتصال واحد فقط لتقليل الضغط على pooler
-    baseConfig.min = 0; // السماح بإغلاق الاتصالات عند عدم الحاجة
-    baseConfig.idleTimeoutMillis = 30000; // 30 ثانية
-    baseConfig.connectionTimeoutMillis = 90000; // 90 ثانية (زيادة كبيرة جداً لحل timeout)
-    baseConfig.keepAlive = true;
-    baseConfig.keepAliveInitialDelayMillis = 30000; // 30 ثانية
-    baseConfig.allowExitOnIdle = true; // السماح بالإغلاق لتقليل الضغط
-    
+    // إعدادات محسّنة للخطط المجانية (Render + Supabase) - "وضع الطابور الواحد"
+    baseConfig.max = 1; // 🛑 اتصال واحد فقط لا غير!
+    baseConfig.min = 0;
+    baseConfig.idleTimeoutMillis = 5000; // إغلاق الاتصال بسرعة لإتاحته لغيره
+    baseConfig.connectionTimeoutMillis = 15000; // 15 ثانية كافية (لو زادت يبقى في مشكلة شبكة)
+    baseConfig.allowExitOnIdle = true;
+
+    // إزالة keep-alive المعقد لتقليل العبء
+    // baseConfig.keepAlive = true; 
+
+    return baseConfig;
+
     // إعدادات إضافية للاتصال
     baseConfig.statement_timeout = 30000; // 30 ثانية للـ query
-    
+
     return baseConfig;
 }
 
 // Function to convert pooler URL to direct connection
 function convertToDirectConnection(url) {
     if (!url) return url;
-    
+
     // ببساطة: استبدال port 6543 بـ 5432 على نفس الـ host
     // Supabase pooler يستخدم port 6543 والـ direct connection يستخدم نفس الـ host لكن port 5432
     if (url.includes(':6543')) {
@@ -70,7 +73,7 @@ function convertToDirectConnection(url) {
         console.log('   Converting pooler port 6543 to direct connection port 5432...');
         return directUrl;
     }
-    
+
     // إذا كان pooler بدون port محدد، أضف port 5432
     if (url.includes('pooler') && !url.match(/:\d+/)) {
         // استبدال pooler.domain: أو pooler.domain/ بـ pooler.domain:5432/
@@ -78,7 +81,7 @@ function convertToDirectConnection(url) {
         console.log('   Adding direct connection port 5432 to pooler URL...');
         return directUrl;
     }
-    
+
     return url;
 }
 
@@ -103,7 +106,7 @@ function getPool() {
                 if (directUrl && directUrl !== connectionString) {
                     // إنشاء pool جديد بـ direct connection
                     if (pool) {
-                        pool.end().catch(() => {});
+                        pool.end().catch(() => { });
                     }
                     const directConfig = createPoolConfig(directUrl);
                     pool = new Pool(directConfig);
@@ -154,7 +157,7 @@ async function query(text, params) {
                 if (directUrl && directUrl !== connectionString) {
                     console.log('   Converting pooler URL to direct connection...');
                     if (pool) {
-                        pool.end().catch(() => {});
+                        pool.end().catch(() => { });
                         pool = null;
                     }
                     const directConfig = createPoolConfig(directUrl);
@@ -189,7 +192,7 @@ async function getClient() {
         } catch (err) {
             lastError = err;
             console.error(`محاولة ${i + 1}/${maxRetries} للحصول على client فشلت:`, err.message);
-            
+
             // إذا كان timeout وكان pooler، جرب direct connection بعد عدة محاولات
             if (err.message.includes('timeout') && !useDirectConnection && connectionString && (connectionString.includes('pooler') || connectionString.includes(':6543')) && i >= 2) {
                 console.log('⚠️  Timeout detected after multiple attempts, trying direct connection...');
@@ -198,7 +201,7 @@ async function getClient() {
                 if (directUrl && directUrl !== connectionString) {
                     console.log('   Converting pooler URL to direct connection...');
                     if (pool) {
-                        pool.end().catch(() => {});
+                        pool.end().catch(() => { });
                         pool = null;
                     }
                     const directConfig = createPoolConfig(directUrl);
@@ -209,7 +212,7 @@ async function getClient() {
                     console.log('   ⚠️  Could not convert URL format');
                 }
             }
-            
+
             // إذا كان الخطأ متعلق بالاتصال، انتظر قليلاً قبل إعادة المحاولة (exponential backoff)
             if (i < maxRetries - 1) {
                 const delay = Math.min(2000 * Math.pow(2, i), 15000); // Max 15 seconds

@@ -167,13 +167,17 @@ app.put('/auth/update-user', async (req, res) => {
 
 // ---------- Companies ----------
 app.get('/api/companies', (req, res) => {
-    // 🚀 Speed: Read from Memory if loaded
-    if (DataCache.isLoaded && DataCache.getCompanies().length > 0) {
-        console.log(`🚀 Serving ${DataCache.getCompanies().length} companies from Cache`);
-        return res.json(DataCache.getCompanies());
+    // 1. Try Cache First
+    if (DataCache.isLoaded) {
+        const cachedCompanies = DataCache.getCompanies();
+        if (cachedCompanies.length > 0) {
+            console.log(`🚀 Serving ${cachedCompanies.length} companies from Cache`);
+            return res.json(cachedCompanies);
+        }
     }
 
-    console.log('🔄 Cache miss/empty, fetching companies from DB...');
+    // 2. Fallback to DB if Cache is empty or not loaded
+    console.log('⚠️ Cache miss or empty, fetching companies directly from DB...');
     db.query('SELECT * FROM companies ORDER BY name', (err, result) => {
         if (err) {
             console.error('❌ Error fetching companies:', err.message);
@@ -205,14 +209,22 @@ app.post('/api/companies', async (req, res) => {
 app.get('/api/invoices', async (req, res) => {
     const { startDate, endDate, companyId } = req.query;
 
-    // 🚀 Speed: Read from Memory
-    if (DataCache.isLoaded && DataCache.getInvoices().length > 0) {
+    // 1. Try Cache First
+    if (DataCache.isLoaded) {
         // Apply filters in memory
         const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
-        console.log(`🚀 Serving ${filtered.length} invoices from Cache (${DataCache.getInvoices().length} total). Filters: ${JSON.stringify({ startDate, endDate, companyId })}`);
-        return res.json(filtered);
+
+        // Only return cache if it has data OR if we are filtering (maybe search result is truly empty)
+        // But if no filters and cache is empty, we should double check DB
+        const hasFilters = startDate || endDate || companyId;
+
+        if (filtered.length > 0 || (hasFilters && DataCache.getInvoices().length > 0)) {
+            console.log(`🚀 Serving ${filtered.length} invoices from Cache. Filters: ${JSON.stringify({ startDate, endDate, companyId })}`);
+            return res.json(filtered);
+        }
     }
 
+    // 2. Fallback to DB
     let where = '1=1';
     const params = [];
     let paramCounter = 1;
@@ -223,17 +235,9 @@ app.get('/api/invoices', async (req, res) => {
 
     const sql = `SELECT i.*, c.name as company_name FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} ORDER BY i.date DESC`;
     try {
-        console.log('🔄 Cache miss/empty, fetching invoices from DB with params:', params);
+        console.log('⚠️ Cache missed requires DB fetch. Fetching invoices from DB...');
         const result = await db.query(sql, params);
         console.log(`✅ Fetched ${result.rows.length} invoices from DB.`);
-
-        // Debug: Check if companies exist
-        if (result.rows.length === 0) {
-            const countCompanies = await db.query('SELECT COUNT(*) FROM companies');
-            const countInvoices = await db.query('SELECT COUNT(*) FROM invoices');
-            console.log(`⚠️ Debug Stats: Companies=${countCompanies.rows[0].count}, Invoices=${countInvoices.rows[0].count}`);
-        }
-
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -576,30 +580,39 @@ app.listen(PORT, async () => {
             await db.query('SELECT 1');
             console.log('✅ Database connection successful on startup');
 
-            // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
+            // 1. Load User Cache First
             try {
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
-                console.log('⚡ Database indexes verified for maximum speed.');
-            } catch (indexErr) {
-                console.error('⚠️  Error creating indexes (may be expected on first run):', indexErr.message);
-            }
-
-            // Load User Cache
-            try {
+                console.log('🔄 1. Loading User Cache...');
                 await UserCache.init();
                 console.log('✅ User cache loaded');
             } catch (cacheErr) {
                 console.error('⚠️  Error loading user cache:', cacheErr.message);
             }
 
-            // Load Data Cache (Companies, Invoices, Bonds)
+            // Wait 2 seconds
+            await new Promise(r => setTimeout(r, 2000));
+
+            // 2. Load Data Cache (Companies, Invoices, Bonds)
             try {
+                console.log('🔄 2. Loading Data Cache...');
                 await DataCache.init();
                 console.log('✅ Data cache loaded');
             } catch (dataErr) {
                 console.error('⚠️  Error loading data cache:', dataErr.message);
+            }
+
+            // Wait 2 seconds
+            await new Promise(r => setTimeout(r, 2000));
+
+            // 3. Create Indexes (Lowest Priority)
+            try {
+                console.log('🔄 3. Optimizing Indexes...');
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
+                await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
+                console.log('⚡ Database indexes verified.');
+            } catch (indexErr) {
+                console.error('⚠️  Error creating indexes:', indexErr.message);
             }
 
             console.log('✅ Database is warm and ready!');
