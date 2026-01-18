@@ -173,11 +173,6 @@ app.put('/auth/update-user', async (req, res) => {
     }
 });
 
-// UserCache and DataCache are already required above or will be moved there.
-
-// ---------- Auth ----------
-// ... (Auth code remains unchanged)
-
 // ---------- Companies ----------
 app.get('/api/companies', (req, res) => {
     // 1. Try Cache First
@@ -256,8 +251,6 @@ app.get('/api/invoices', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// ... (POST invoice logic needs to call DataCache.addInvoice at the end)
-
 
 app.put('/api/companies/:id', async (req, res) => {
     const { name, vat_number, contact_person, phone, address, bank_account } = req.body;
@@ -283,25 +276,6 @@ app.delete('/api/companies/:id', async (req, res) => {
     }
 });
 
-// ---------- Invoices ----------
-app.get('/api/invoices', async (req, res) => {
-    const { startDate, endDate, companyId } = req.query;
-    let where = '1=1';
-    const params = [];
-    let paramCounter = 1;
-
-    if (startDate) { where += ` AND i.date >= $${paramCounter++}`; params.push(startDate); }
-    if (endDate) { where += ` AND i.date <= $${paramCounter++}`; params.push(endDate); }
-    if (companyId) { where += ` AND i.company_id = $${paramCounter++}`; params.push(companyId); }
-
-    const sql = `SELECT i.*, c.name as company_name FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} ORDER BY i.date DESC`;
-    try {
-        const result = await db.query(sql, params);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
 app.post('/api/invoices', async (req, res) => {
     const { company_id, date, customs_office, shipment_type, notes, status, items } = req.body;
@@ -665,7 +639,7 @@ async function warmUpDatabase() {
     await retryOperation('DB Connection Check', async () => {
         await db.query('SELECT 1');
     });
-    console.log('🟢 PostgreSQL connected via Supabase Transaction Pooler (6543)');
+    console.log('🟢 PostgreSQL connected via Supabase Transaction Pooler (Port 6543) - Keep-Alive Enabled');
 
     // 2. Load Critical Caches
     console.log('🔄 Loading all users, companies, and invoices into cache...');
@@ -704,19 +678,24 @@ async function startServer() {
         console.log(`🚀 ERP System Server running on port ${PORT}`);
         console.log('⏳ Server started. Connecting to Database in background...');
 
-        // Heartbeat to keep connection active
+        // Heartbeat to keep connection active (prevents idle disconnection)
         setInterval(async () => {
             if (isDbReady) {
-                try { await db.query('SELECT 1'); } catch (e) { }
+                try {
+                    await db.query('SELECT 1');
+                    // Silent success - only log failures
+                } catch (e) {
+                    console.warn('⚠️ Heartbeat failed:', e.message);
+                }
             }
-        }, 25000);
+        }, 20000); // Every 20 seconds
     });
 
     // 2. Warm up Database in Background
     warmUpDatabase().catch(err => {
         console.error('❌ Critical Database Startup Error:', err.message);
         console.error('👉 TIP: Check your Supabase "Network Restrictions" (allow 0.0.0.0/0)');
-        console.error('👉 TIP: Try using Port 6543 (Transaction Pooler) in DATABASE_URL');
+        console.error('👉 TIP: Verify DATABASE_URL and credentials in .env file');
     });
 }
 
