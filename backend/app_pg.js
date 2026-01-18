@@ -167,13 +167,18 @@ app.put('/auth/update-user', async (req, res) => {
 
 // ---------- Companies ----------
 app.get('/api/companies', (req, res) => {
-    console.log('🔄 Fetching companies from DB...');
+    // 🚀 Speed: Read from Memory if loaded
+    if (DataCache.isLoaded && DataCache.getCompanies().length > 0) {
+        console.log(`🚀 Serving ${DataCache.getCompanies().length} companies from Cache`);
+        return res.json(DataCache.getCompanies());
+    }
+
+    console.log('🔄 Cache miss/empty, fetching companies from DB...');
     db.query('SELECT * FROM companies ORDER BY name', (err, result) => {
         if (err) {
             console.error('❌ Error fetching companies:', err.message);
             return res.status(500).json({ error: err.message });
         }
-        console.log(`✅ Fetched ${result.rows.length} companies.`);
         res.json(result.rows);
     });
 });
@@ -200,6 +205,14 @@ app.post('/api/companies', async (req, res) => {
 app.get('/api/invoices', async (req, res) => {
     const { startDate, endDate, companyId } = req.query;
 
+    // 🚀 Speed: Read from Memory
+    if (DataCache.isLoaded && DataCache.getInvoices().length > 0) {
+        // Apply filters in memory
+        const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
+        console.log(`🚀 Serving ${filtered.length} invoices from Cache (${DataCache.getInvoices().length} total)`);
+        return res.json(filtered);
+    }
+
     let where = '1=1';
     const params = [];
     let paramCounter = 1;
@@ -210,7 +223,7 @@ app.get('/api/invoices', async (req, res) => {
 
     const sql = `SELECT i.*, c.name as company_name FROM invoices i JOIN companies c ON i.company_id = c.id WHERE ${where} ORDER BY i.date DESC`;
     try {
-        console.log('🔄 Fetching invoices with params:', params);
+        console.log('🔄 Cache miss/empty, fetching invoices from DB with params:', params);
         const result = await db.query(sql, params);
         console.log(`✅ Fetched ${result.rows.length} invoices from DB.`);
 
@@ -236,6 +249,7 @@ app.put('/api/companies/:id', async (req, res) => {
             'UPDATE companies SET name = $1, vat_number = $2, contact_person = $3, phone = $4, address = $5, bank_account = $6 WHERE id = $7',
             [name, vat_number, contact_person, phone, address, bank_account, req.params.id]
         );
+        DataCache.updateCompany(req.params.id, { name, vat_number, contact_person, phone, address, bank_account });
         res.json({ changes: result.rowCount });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -245,6 +259,7 @@ app.put('/api/companies/:id', async (req, res) => {
 app.delete('/api/companies/:id', async (req, res) => {
     try {
         const result = await db.query('DELETE FROM companies WHERE id = $1', [req.params.id]);
+        DataCache.deleteCompany(req.params.id);
         res.json({ changes: result.rowCount });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -317,6 +332,13 @@ app.post('/api/invoices', async (req, res) => {
         }
 
         await client.query('COMMIT');
+
+        // Update Cache
+        DataCache.addInvoice({
+            id: invoiceId, company_id, date, customs_office, shipment_type, notes, status, qr_code: qrBase64,
+            total_before_tax, clearance_fee, vat_amount, total_after_tax
+        });
+
         res.json({ id: invoiceId, qr_code: qrBase64 });
     } catch (err) {
         await client.query('ROLLBACK');
@@ -347,6 +369,10 @@ app.get('/api/invoices/:id', async (req, res) => {
 app.delete('/api/invoices/:id', async (req, res) => {
     try {
         await db.query('DELETE FROM invoices WHERE id = $1', [req.params.id]); // Cascade delete handles items
+
+        // Update Cache
+        DataCache.deleteInvoice(req.params.id);
+
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -397,6 +423,13 @@ app.put('/api/invoices/:id', async (req, res) => {
             }
         }
         await client.query('COMMIT');
+
+        // Update Cache
+        DataCache.updateInvoice(invoiceId, {
+            company_id, date, customs_office, shipment_type, notes, status, qr_code: qrBase64,
+            total_before_tax, clearance_fee, vat_amount, total_after_tax
+        });
+
         res.json({ id: invoiceId, changes: 1 });
     } catch (err) {
         await client.query('ROLLBACK');
