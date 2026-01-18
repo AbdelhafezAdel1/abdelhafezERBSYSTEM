@@ -70,10 +70,14 @@ class DataCache {
             results = results.filter(i => i.company_id == filters.companyId);
         }
         if (filters.startDate) {
-            results = results.filter(i => i.date >= filters.startDate);
+            const start = new Date(filters.startDate);
+            start.setHours(0, 0, 0, 0);
+            results = results.filter(i => new Date(i.date) >= start);
         }
         if (filters.endDate) {
-            results = results.filter(i => i.date <= filters.endDate);
+            const end = new Date(filters.endDate);
+            end.setHours(23, 59, 59, 999);
+            results = results.filter(i => new Date(i.date) <= end);
         }
 
         return results;

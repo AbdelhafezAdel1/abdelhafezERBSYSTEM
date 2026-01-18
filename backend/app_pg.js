@@ -209,7 +209,7 @@ app.get('/api/invoices', async (req, res) => {
     if (DataCache.isLoaded && DataCache.getInvoices().length > 0) {
         // Apply filters in memory
         const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
-        console.log(`🚀 Serving ${filtered.length} invoices from Cache (${DataCache.getInvoices().length} total)`);
+        console.log(`🚀 Serving ${filtered.length} invoices from Cache (${DataCache.getInvoices().length} total). Filters: ${JSON.stringify({ startDate, endDate, companyId })}`);
         return res.json(filtered);
     }
 
@@ -568,14 +568,14 @@ app.listen(PORT, async () => {
 
     // Warm-up Database Connection (non-blocking)
     console.log('🔥 Starting database warm-up (non-blocking)...');
-    
+
     // محاولة اتصال سريعة (non-blocking)
     (async () => {
         try {
             // محاولة سريعة واحدة فقط
             await db.query('SELECT 1');
             console.log('✅ Database connection successful on startup');
-            
+
             // 🚀 تحسين الأداء: إنشاء فهارس للسرعة إذا لم تكن موجودة
             try {
                 await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
@@ -601,7 +601,7 @@ app.listen(PORT, async () => {
             } catch (dataErr) {
                 console.error('⚠️  Error loading data cache:', dataErr.message);
             }
-            
+
             console.log('✅ Database is warm and ready!');
         } catch (err) {
             console.error('⚠️  Initial connection failed - will retry on first query');
