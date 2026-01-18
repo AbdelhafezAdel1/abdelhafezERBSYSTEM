@@ -1,12 +1,17 @@
 const { Pool } = require('pg');
 const path = require('path');
+const dns = require('dns');
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
+
+// 🔥 FORCE IPv4: Fix for Render ENETUNREACH errors (Node 17+)
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 // 🔌 FINAL SOLUTION: Port 6543 with Non-Blocking Strategy
 // The key is NOT the port, but the non-blocking warm-up approach
 let connectionString = process.env.DATABASE_URL;
 
-console.log('🔌 DB Config Check:');
 console.log('🔌 DB Config Check:');
 if (connectionString) {
     // Log the resolved host to ensure env var is read correctly
@@ -47,12 +52,6 @@ const poolConfig = connectionString
             rejectUnauthorized: false,
             // Increase compatibility
             checkServerIdentity: () => undefined
-        },
-        // 🔥 CRITICAL FIX: Force IPv4 to avoid ENETUNREACH (IPv6) errors
-        host: undefined, // When connectionString is present, host is extracted from it. Setting to undefined prevents pg from trying to resolve it separately.
-        // Force the socket to use IPv4
-        socketParams: {
-            family: 4
         }
     }
     : {
