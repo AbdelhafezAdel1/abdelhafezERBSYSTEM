@@ -36,8 +36,8 @@ const poolConfig = connectionString
 
 // إعدادات محسّنة لحل مشكلة sleep والاتصال مع Supabase
 poolConfig.max = 5; // تقليل العدد الأقصى (Supabase pooler له حدود)
-poolConfig.min = 0; // لا نحتاج اتصالات دائمة
-poolConfig.idleTimeoutMillis = 30000; // 30 ثانية قبل إغلاق اتصال خامل
+poolConfig.min = 1; // 🔥 إبقاء اتصال واحد مفتوح دائماً للسرعة القصوى
+poolConfig.idleTimeoutMillis = 60000; // 60 ثانية قبل إغلاق اتصال خامل
 poolConfig.connectionTimeoutMillis = 60000; // 60 ثانية timeout للاتصال
 poolConfig.keepAlive = true; // إبقاء الاتصال نشط
 poolConfig.keepAliveInitialDelayMillis = 0; // بدء keep-alive فوراً

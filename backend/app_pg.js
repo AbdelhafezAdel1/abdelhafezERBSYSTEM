@@ -2,6 +2,7 @@
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
+const compression = require('compression');
 const path = require('path');
 const db = require('./db'); // Use the new PG module
 const QRCode = require('qrcode');
@@ -9,6 +10,7 @@ const QRCode = require('qrcode');
 const app = express();
 
 // Middleware
+app.use(compression()); // 🚀 ضغط البيانات لتسريع النقل
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
