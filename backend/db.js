@@ -15,18 +15,18 @@ if (connectionString) {
         console.log(`   Target Host: ${url.hostname}`);
         console.log(`   Target Port: ${url.port}`);
         console.log(`   Using SSL: true`);
-    } catch(e) {
+    } catch (e) {
         console.log('   Could not parse URL details');
     }
-    
+
     // Safety mask for password
     const safeConnString = connectionString.replace(/:[^:@]+@/, ':***@');
     console.log(`   Full Connection String: ${safeConnString}`);
 
-    if (connectionString.includes('6543')) {
-        console.log("✅ Using Transaction Pooler (Port 6543) with Non-Blocking Strategy");
-    } else if (connectionString.includes('5432')) {
-        console.log("✅ Using Session Mode (Port 5432)");
+    if (connectionString.includes('pooler.supabase.com')) {
+        console.log("⚠️ Using Supabase Pooler - May have timeout issues on free tier");
+    } else if (connectionString.includes('supabase.co')) {
+        console.log("✅ Using Direct Connection (supabase.co) - Best for stability");
     }
 } else {
     console.error("❌ No DATABASE_URL found!");
@@ -39,12 +39,15 @@ const poolConfig = connectionString
         max: 3, // Small pool for free tier
         min: 1, // Keep 1 connection warm
         idleTimeoutMillis: 30000, // 30s
-        idleTimeoutMillis: 30000, // 30s
         connectionTimeoutMillis: 120000, // 2 minutes (Final attempt before confirming IP block)
         allowExitOnIdle: false, // Keep pool alive
         keepAlive: true, // TCP keep-alive
         keepAliveInitialDelayMillis: 10000, // 10s
-        ssl: { rejectUnauthorized: false }
+        ssl: {
+            rejectUnauthorized: false,
+            // Increase compatibility
+            checkServerIdentity: () => undefined
+        }
     }
     : {
         user: process.env.DB_USER || 'postgres',
