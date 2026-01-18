@@ -534,11 +534,9 @@ app.listen(PORT, async () => {
         await db.query('SELECT 1');
 
         // Load User Cache
-        const UserCache = require('./utils/UserCache');
         await UserCache.init();
 
         // Load Data Cache (Background)
-        const DataCache = require('./utils/DataCache');
         DataCache.init();
 
         console.log('✅ Database is warm and ready!');
