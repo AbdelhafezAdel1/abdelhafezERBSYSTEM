@@ -588,58 +588,61 @@ app.listen(PORT, async () => {
     console.log('🔥 Starting database warm-up (non-blocking)...');
 
     // محاولة اتصال سريعة (non-blocking)
+    // Warm-up Database Connection (Reliable Sequence)
+    console.log('🔥 Starting database warm-up...');
+
     (async () => {
-        try {
-            // محاولة سريعة واحدة فقط
-            await db.query('SELECT 1');
-            console.log('✅ Database connection successful on startup');
-
-            // 1. Load User Cache First
-            try {
-                console.log('🔄 1. Loading User Cache...');
-                await UserCache.init();
-                console.log('✅ User cache loaded');
-            } catch (cacheErr) {
-                console.error('⚠️  Error loading user cache:', cacheErr.message);
+        // Helper for retries
+        const retryOperation = async (operationName, operationFn, retries = 5, delay = 2000) => {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    await operationFn();
+                    console.log(`✅ ${operationName} success.`);
+                    return true;
+                } catch (err) {
+                    console.warn(`⚠️ ${operationName} failed (attempt ${i + 1}/${retries}): ${err.message}`);
+                    if (i < retries - 1) await new Promise(r => setTimeout(r, delay));
+                }
             }
+            console.error(`❌ ${operationName} failed after ${retries} attempts.`);
+            return false;
+        };
 
-            // Wait 2 seconds
-            await new Promise(r => setTimeout(r, 2000));
+        // 1. Check Connectivity
+        const isConnected = await retryOperation('DB Connection Check', async () => await db.query('SELECT 1'));
 
-            // 2. Load Data Cache (Companies, Invoices, Bonds)
+        if (isConnected) {
+            console.log('🟢 PostgreSQL connected via Supabase Transaction Pooler (6543)');
+
+            // 2. Load Critical Caches
+            console.log('🔄 Loading all users, companies, and invoices into cache...');
+            await retryOperation('User Cache', async () => await UserCache.init());
+            await retryOperation('Data Cache', async () => await DataCache.init());
+
+            // 3. Optimize (Optional)
             try {
-                console.log('🔄 2. Loading Data Cache...');
-                await DataCache.init();
-                console.log('✅ Data cache loaded');
-            } catch (dataErr) {
-                console.error('⚠️  Error loading data cache:', dataErr.message);
-            }
-
-            // Wait 2 seconds
-            await new Promise(r => setTimeout(r, 2000));
-
-            // 3. Create Indexes (Lowest Priority)
-            try {
-                console.log('🔄 3. Optimizing Indexes...');
                 await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date DESC)`);
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id)`);
-                await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_name ON companies(name)`);
-                console.log('⚡ Database indexes verified.');
-            } catch (indexErr) {
-                console.error('⚠️  Error creating indexes:', indexErr.message);
-            }
+            } catch (err) { /* Strict mode ignore */ }
 
             console.log('✅ Database is warm and ready!');
-            isDbReady = true; // 🟢 Open the gates
-            console.log('🟢 Traffic enabled - System Ready');
-        } catch (err) {
-            console.error('⚠️  Initial connection failed - will retry on first query');
-            console.error('   Error:', err.message);
-            // Even if warm-up fails, let traffic in after a delay to allow retries
-            setTimeout(() => {
-                isDbReady = true;
-                console.log('🟠 Traffic enabled (Fallback mode)');
-            }, 5000);
+            isDbReady = true; // 🟢 TRAFFIC ENABLED
+        } else {
+            console.error('❌ Critical: Warm-up failed. Traffic blocked. Retrying in background...');
+            // Continuous Retry Loop (Safe Mode) - Never enable traffic until ready
+            setInterval(async () => {
+                if (!isDbReady) {
+                    try {
+                        console.log('🔄 Background retry: Connecting...');
+                        await db.query('SELECT 1');
+                        await UserCache.init();
+                        await DataCache.init();
+                        isDbReady = true;
+                        console.log('✅ Database is warm and ready! (Recovered)');
+                    } catch (e) {
+                        console.warn('⚠️ Background retry failed, waiting...');
+                    }
+                }
+            }, 10000);
         }
     })();
 

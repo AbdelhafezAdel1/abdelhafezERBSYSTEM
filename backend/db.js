@@ -20,18 +20,17 @@ if (connectionString) {
     console.error("❌ No DATABASE_URL found!");
 }
 
-// 2️⃣ إعدادات Pool قوية (High Availability Config)
-// بناءً على التوصيات: رفعنا العدد والوقت لتفادي الـ Timeouts أثناء الـ Warm-up
+// 2️⃣ إعدادات Pool مضبوطة بدقة (حسب الطلب)
 const poolConfig = connectionString
     ? {
         connectionString: connectionString,
-        max: 20, // زيادة العدد لأن Transaction Mode بيتحمل
-        idleTimeoutMillis: 30000, // 30 ثانية
-        connectionTimeoutMillis: 40000, // 40 ثانية (أعطه وقته عشان يوصل)
+        max: 5, // Strict limit for free tier
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000, // 15s as requested
         ssl: { rejectUnauthorized: false }
     }
     : {
-        // Fallback for local development if .env is missing URL
+        // Fallback for local development
         user: process.env.DB_USER || 'postgres',
         host: process.env.DB_HOST || 'localhost',
         database: process.env.DB_NAME || 'erb_system',
