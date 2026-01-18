@@ -167,16 +167,10 @@ app.put('/auth/update-user', async (req, res) => {
 
 // ---------- Companies ----------
 app.get('/api/companies', (req, res) => {
-    // 🚀 Speed: Read from Memory
-    if (DataCache.isLoaded) {
-        res.json(DataCache.getCompanies());
-    } else {
-        // Fallback if cache isn't ready
-        db.query('SELECT * FROM companies', (err, result) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json(result.rows);
-        });
-    }
+    db.query('SELECT * FROM companies ORDER BY name', (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(result.rows);
+    });
 });
 
 app.post('/api/companies', async (req, res) => {
@@ -201,13 +195,6 @@ app.post('/api/companies', async (req, res) => {
 app.get('/api/invoices', async (req, res) => {
     const { startDate, endDate, companyId } = req.query;
 
-    // 🚀 Speed: Read from Memory with Filtering
-    if (DataCache.isLoaded) {
-        const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
-        return res.json(filtered);
-    }
-
-    // Fallback logic ...
     let where = '1=1';
     const params = [];
     let paramCounter = 1;
@@ -440,12 +427,6 @@ app.post('/api/bonds', async (req, res) => {
 app.get('/api/dashboard', async (req, res) => {
     const { startDate, endDate, companyId } = req.query;
 
-    // 🚀 Speed: Calculate Stats in Memory
-    if (DataCache.isLoaded) {
-        return res.json(DataCache.getDashboardStats({ startDate, endDate, companyId }));
-    }
-
-    // Fallback logic (Old SQL way) ...
     let where = '1=1';
     const params = [];
     let paramCounter = 1;
@@ -545,8 +526,7 @@ app.listen(PORT, async () => {
         // Load User Cache
         await UserCache.init();
 
-        // Load Data Cache (Background)
-        DataCache.init();
+
 
         console.log('✅ Database is warm and ready!');
     } catch (err) {
