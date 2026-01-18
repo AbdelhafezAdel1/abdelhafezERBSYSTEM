@@ -3,13 +3,6 @@ const path = require('path');
 // Load .env if exists
 require('dotenv').config({ path: path.join(__dirname, '.env'), silent: true });
 
-// 🔥 FORCE OVERRIDE: Fix Render/Supabase Free Tier Port globally
-// We modify the checking source directly to ensure NO code uses the old port.
-if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes(':6543')) {
-    console.log('🔧 GLOBAL FIX: Overwriting process.env.DATABASE_URL to use port 5432 (Session Mode)');
-    process.env.DATABASE_URL = process.env.DATABASE_URL.replace(':6543', ':5432');
-}
-
 // Support both DATABASE_URL (Render/Supabase) and individual env vars
 const connectionString = process.env.DATABASE_URL;
 
@@ -35,11 +28,17 @@ if (finalConnectionString) {
 
 // Function to create pool config
 function createPoolConfig(connString) {
+    // ⚠️ Reverting to 6543 (Transaction Mode) - Mode Stateless
+    // Transaction Mode logic:
+    // 1. Accept 6543.
+    // 2. High turnover (No Keep-Alive).
+    // 3. Higher Max connections (Poolers handle thousands).
+
     const baseConfig = connString
         ? {
             connectionString: connString,
             ssl: {
-                rejectUnauthorized: false // Required for Supabase/Render
+                rejectUnauthorized: false
             }
         }
         : {
@@ -47,28 +46,19 @@ function createPoolConfig(connString) {
             host: process.env.DB_HOST || 'localhost',
             database: process.env.DB_NAME || 'erb_system',
             password: process.env.DB_PASSWORD || 'password',
-            port: process.env.DB_PORT || 5432,
+            port: process.env.DB_PORT || 6543,
             ssl: {
                 rejectUnauthorized: false
             }
         };
 
-    // إعدادات محسّنة للخطط المجانية (Balance Mode)
-    // 3 اتصالات: كافية للتزامن وآمنة من الحد الأقصى
-    baseConfig.max = 3;
-    baseConfig.min = 1; // الاتفاظ باتصال واحد مفتوح دائماً للسرعة
-    baseConfig.idleTimeoutMillis = 30000; // 30 ثانية قبل الإغلاق
-    baseConfig.connectionTimeoutMillis = 10000; // 10 ثواني مهلة انتظار فتح الخط
-    baseConfig.allowExitOnIdle = false; // لا تغلق الاتصال عند الخمول (خليك جاهز)
+    // ⚡ إعدادات وضع الـ Transaction Pooler (6543)
+    baseConfig.max = 10; // يسمح بعدد أكبر لأن الـ Pooler بيديرهم
+    baseConfig.idleTimeoutMillis = 0; // إغلاق فوري للاتصال بعد الاستخدام (Stateless)
+    baseConfig.allowExitOnIdle = true;
 
-    // تفعيل keep-alive للحفاظ على الخط سخن
-    baseConfig.keepAlive = true;
-    baseConfig.keepAliveInitialDelayMillis = 10000;
-
-    return baseConfig;
-
-    // إعدادات إضافية للاتصال
-    baseConfig.statement_timeout = 30000; // 30 ثانية للـ query
+    // 🚫 إلغاء Keep-Alive: الـ Pooler في وضع Transaction لا يحتاج اتصالات طويلة
+    baseConfig.keepAlive = false;
 
     return baseConfig;
 }
