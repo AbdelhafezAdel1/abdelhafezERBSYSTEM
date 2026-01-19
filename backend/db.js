@@ -100,9 +100,9 @@ const poolConfig = {
     max: 5,                         // Increased to 5 as requested
     min: 1,                         // Keep at least 1 connection open
     idleTimeoutMillis: 30000,       // 30s - Longer to keep connections alive
-    connectionTimeoutMillis: 25000, // 25s - Very lenient for slow wake-ups
-    query_timeout: 30000,           // 30s query timeout
-    statement_timeout: 30000,       // 30s statement timeout
+    connectionTimeoutMillis: 10000, // 10s - Fail faster to allow switch to fallback
+    query_timeout: 15000,           // 15s query timeout
+    statement_timeout: 15000,       // 15s statement timeout
     allowExitOnIdle: false,
     ssl: {
         rejectUnauthorized: false
