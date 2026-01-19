@@ -2,13 +2,21 @@ const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const enableFallback = String(process.env.ENABLE_DB_FALLBACK || '').toLowerCase() === 'true';
-
 // 🔌 DATABASE CONNECTION CONFIG WITH FALLBACK
 let connectionString = process.env.DATABASE_URL;
-let fallbackConnectionString = null;
+let fallbackConnectionString = process.env.DATABASE_URL_FALLBACK;
+let enableFallback = String(process.env.ENABLE_DB_FALLBACK || '').toLowerCase() === 'true';
 
-// Build fallback connection string (direct connection)
+// 🤖 SMART FALLBACK A: Auto-detect Supabase Session Pooler (5432) -> Add Transaction Pooler (6543)
+if (connectionString && connectionString.includes('pooler.supabase.com') && connectionString.includes(':5432')) {
+    if (!fallbackConnectionString) {
+        fallbackConnectionString = connectionString.replace(':5432', ':6543');
+        console.log('🤖 Auto-configured Supabase Fallback to Port 6543 (Transaction Mode)');
+        enableFallback = true;
+    }
+}
+
+// Build fallback connection string (manually constructed case)
 if (!connectionString && process.env.DB_HOST) {
     const user = process.env.DB_USER || 'postgres';
     const password = process.env.DB_PASSWORD;
@@ -17,12 +25,6 @@ if (!connectionString && process.env.DB_HOST) {
     const database = process.env.DB_NAME || 'postgres';
 
     connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
-}
-
-// Fallback is OPT-IN ONLY and must be explicitly provided.
-// This avoids incorrect host guessing (ENOTFOUND) and keeps primary on port 6543.
-if (enableFallback && process.env.DATABASE_URL_FALLBACK) {
-    fallbackConnectionString = process.env.DATABASE_URL_FALLBACK;
 }
 
 // Validate connection string
