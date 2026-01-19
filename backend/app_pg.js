@@ -660,13 +660,23 @@ async function warmUpDatabase() {
 
         } catch (err) {
             console.error('⚠️ Database initialization failed:', err.message);
-            console.log('💡 Server will continue - database will retry on first request');
             
-            // Schedule retry after 60 seconds (longer for fallback)
+            // Check if it's a network/DNS issue
+            if (err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo')) {
+                console.error('🌐 Network/DNS issue detected - check Supabase project status');
+                console.error('💡 The Supabase project might be paused or the hostname is incorrect');
+            } else if (err.message.includes('timeout')) {
+                console.error('⏱️ Connection timeout - network might be slow or blocked');
+            }
+            
+            console.log('💡 Server will continue in offline mode - database will retry on first request');
+            
+            // Schedule retry with exponential backoff
+            const retryDelay = Math.min(60000 * Math.pow(2, Math.floor(Date.now() / 60000) % 4), 300000); // Max 5 minutes
             setTimeout(() => {
                 console.log('🔄 Retrying database initialization...');
                 warmUpDatabase();
-            }, 60000);
+            }, retryDelay);
         }
     }, 15000); // Wait 15 seconds before ANY database operation
 }

@@ -19,9 +19,23 @@ if (!connectionString && process.env.DB_HOST) {
 
 // Create fallback URL (direct connection) if using pooler
 if (connectionString && connectionString.includes('pooler')) {
-    fallbackConnectionString = connectionString
-        .replace('pooler.supabase.com:6543', 'db.supabase.com:5432')
-        .replace('pooler', 'db');
+    try {
+        // Parse the current connection string
+        const url = new URL(connectionString);
+        
+        // Replace pooler hostname with db hostname
+        const hostname = url.hostname.replace('pooler.supabase.com', 'db.supabase.com');
+        
+        // Change port from 6543 to 5432 for direct connection
+        url.hostname = hostname;
+        url.port = '5432';
+        
+        fallbackConnectionString = url.toString();
+        console.log('✅ Fallback URL generated successfully');
+    } catch (err) {
+        console.warn('⚠️ Failed to generate fallback URL:', err.message);
+        fallbackConnectionString = null;
+    }
 }
 
 // Validate connection string
@@ -45,8 +59,10 @@ let circuitBreaker = {
     isOpen: false,
     failureCount: 0,
     lastFailureTime: null,
-    resetTimeout: 60000, // 1 minute
-    maxFailures: 3
+    resetTimeout: 120000, // 2 minutes (increased)
+    maxFailures: 5, // Increased threshold
+    consecutiveSuccesses: 0,
+    minSuccessesToClose: 3
 };
 
 // Check if circuit breaker should block requests
@@ -57,6 +73,7 @@ function checkCircuitBreaker() {
             console.log('🔄 Circuit breaker reset - trying connection again');
             circuitBreaker.isOpen = false;
             circuitBreaker.failureCount = 0;
+            circuitBreaker.consecutiveSuccesses = 0;
             return false;
         }
         return true; // Still open
@@ -68,19 +85,23 @@ function checkCircuitBreaker() {
 function recordFailure() {
     circuitBreaker.failureCount++;
     circuitBreaker.lastFailureTime = Date.now();
+    circuitBreaker.consecutiveSuccesses = 0;
     
     if (circuitBreaker.failureCount >= circuitBreaker.maxFailures) {
         circuitBreaker.isOpen = true;
-        console.error('🚨 Circuit breaker OPENED - blocking database requests');
+        console.error(`🚨 Circuit breaker OPENED after ${circuitBreaker.failureCount} failures - blocking database requests`);
     }
 }
 
 // Record success in circuit breaker
 function recordSuccess() {
-    circuitBreaker.failureCount = 0;
-    if (circuitBreaker.isOpen) {
-        console.log('✅ Circuit breaker CLOSED - connection restored');
+    circuitBreaker.failureCount = Math.max(0, circuitBreaker.failureCount - 1);
+    circuitBreaker.consecutiveSuccesses++;
+    
+    if (circuitBreaker.isOpen && circuitBreaker.consecutiveSuccesses >= circuitBreaker.minSuccessesToClose) {
+        console.log(`✅ Circuit breaker CLOSED after ${circuitBreaker.consecutiveSuccesses} consecutive successes`);
         circuitBreaker.isOpen = false;
+        circuitBreaker.failureCount = 0;
     }
 }
 
