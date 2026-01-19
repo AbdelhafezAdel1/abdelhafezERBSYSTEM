@@ -606,25 +606,25 @@ app.use((req, res, next) => {
 
 async function warmUpDatabase() {
     console.log('🚀 Server starting with ZERO database dependencies...');
-    console.log('⏳ Database initialization will begin in 10 seconds...');
+    console.log('⏳ Database initialization will begin in 15 seconds...');
 
     // Mark as ready immediately - no blocking
     isDbReady = true;
 
-    // Wait 10 seconds before attempting ANY database operations
-    // This gives Render and Supabase time to stabilize the connection
+    // Wait 15 seconds before attempting ANY database operations
+    // This gives Render and Supabase time to stabilize connections
     setTimeout(async () => {
         console.log('🔄 Starting background database initialization...');
 
         try {
-            // Test connection first with timeout
+            // Test connection with longer timeout for fallback
             const connectionTest = await Promise.race([
                 db.testConnection(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 15000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 20000))
             ]);
 
             if (!connectionTest) {
-                throw new Error('Connection test failed');
+                throw new Error('Both primary and fallback connections failed');
             }
 
             console.log('✅ Database connected successfully');
@@ -662,13 +662,13 @@ async function warmUpDatabase() {
             console.error('⚠️ Database initialization failed:', err.message);
             console.log('💡 Server will continue - database will retry on first request');
             
-            // Schedule retry after 30 seconds
+            // Schedule retry after 60 seconds (longer for fallback)
             setTimeout(() => {
                 console.log('🔄 Retrying database initialization...');
                 warmUpDatabase();
-            }, 30000);
+            }, 60000);
         }
-    }, 10000); // Wait 10 seconds before ANY database operation
+    }, 15000); // Wait 15 seconds before ANY database operation
 }
 
 async function startServer() {
