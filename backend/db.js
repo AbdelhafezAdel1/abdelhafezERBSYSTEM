@@ -96,11 +96,11 @@ function recordSuccess() {
 const poolConfig = {
     connectionString: connectionString,
     max: 5,                         // Increased to 5 as requested
-    min: 0,
+    min: 1,                         // Keep at least 1 connection open
     idleTimeoutMillis: 30000,       // 30s - Longer to keep connections alive
-    connectionTimeoutMillis: 5000,  // 5s - Fail fast if connection is stuck
-    query_timeout: 12000,
-    statement_timeout: 12000,
+    connectionTimeoutMillis: 25000, // 25s - Very lenient for slow wake-ups
+    query_timeout: 30000,           // 30s query timeout
+    statement_timeout: 30000,       // 30s statement timeout
     allowExitOnIdle: false,
     ssl: {
         rejectUnauthorized: false
