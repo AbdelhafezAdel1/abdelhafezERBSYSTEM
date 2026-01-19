@@ -1,4 +1,23 @@
-// Express and dependencies
+// 🔴 FORCE IPV4 — MUST BE FIRST
+const dns = require('dns');
+
+// Override dns.lookup to allow only IPv4 (Fixes Render/Supabase ENETUNREACH)
+const originalLookup = dns.lookup;
+dns.lookup = (hostname, options, callback) => {
+    if (typeof options === 'function') {
+        callback = options;
+        options = {};
+    }
+    options = options || {};
+    // Force IPv4
+    options.family = 4;
+    return originalLookup(hostname, options, callback);
+};
+
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
@@ -19,28 +38,27 @@ app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
 app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
 app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
-// 🚀 PRODUCTION SESSION STORE
-// Use memory store in development, but warn about production limitations
+// 🚀 PRODUCTION STARTUP: Use memory session store with warning suppression
+// For production with multiple instances, consider Redis or sticky sessions
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
 
-let sessionStore;
-if (isProduction) {
-    // In production, we still use memory store but with warnings
-    // For true production, consider Redis or similar
-    console.warn('⚠️ Using MemoryStore in production - sessions will be lost on restart');
-    console.warn('💡 Consider using Redis or PostgreSQL session store for production');
-    sessionStore = new session.MemoryStore();
-} else {
-    sessionStore = new session.MemoryStore();
+// Suppress MemoryStore warning in production
+const MemoryStore = session.MemoryStore;
+
+// Only show warning in development
+if (!isProduction) {
+    console.log('⚠️ Using MemoryStore - not suitable for production scaling');
 }
 
 app.use(session({
-    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'secret-key',
     resave: false,
     saveUninitialized: false,
     rolling: true,
+    store: new MemoryStore({
+        checkPeriod: 86400000 // Clear expired sessions every 24h
+    }),
     cookie: {
         secure: isProduction,
         httpOnly: true,
@@ -611,73 +629,44 @@ async function warmUpDatabase() {
     isDbReady = true;
 
     // Wait 15 seconds before attempting ANY database operations
-    // This gives Render and Supabase time to stabilize connections
+    // This gives Render and Supabase time to stabilize the connection
     setTimeout(async () => {
         console.log('🔄 Starting background database initialization...');
 
         try {
-            // Test connection with longer timeout for fallback
-            const connectionTest = await Promise.race([
-                db.testConnection(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 20000))
-            ]);
-
-            if (!connectionTest) {
-                throw new Error('Both primary and fallback connections failed');
-            }
-
+            // Quick connection test
+            await db.query('SELECT 1');
             console.log('✅ Database connected successfully');
 
-            // Load caches with error handling
-            try {
-                await UserCache.init();
+            // Load caches (non-blocking)
+            UserCache.init().then(() => {
                 console.log('✅ User cache loaded');
-            } catch (err) {
-                console.warn('⚠️ User cache failed (using fallback):', err.message);
-            }
+            }).catch(err => {
+                console.warn('⚠️ User cache failed:', err.message);
+            });
 
-            try {
-                await DataCache.init();
+            DataCache.init().then(() => {
                 console.log('✅ Data cache loaded');
-            } catch (err) {
+            }).catch(err => {
                 console.warn('⚠️ Data cache failed:', err.message);
-            }
+            });
 
-            // Ensure admin user with error handling
-            try {
-                const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
-                if (result.rows.length === 0) {
-                    await db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
-                        [SEED_USER.username, SEED_USER.password]);
-                    console.log('✅ Admin user created');
-                } else {
-                    console.log('✅ Admin user verified');
-                }
-            } catch (err) {
-                console.warn('⚠️ Admin user check failed:', err.message);
-            }
+            // Ensure admin user (non-blocking)
+            db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username])
+                .then(result => {
+                    if (result.rows.length === 0) {
+                        return db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
+                            [SEED_USER.username, SEED_USER.password]);
+                    }
+                })
+                .then(() => console.log('✅ Admin user verified'))
+                .catch(err => console.warn('⚠️ Admin user check failed:', err.message));
 
         } catch (err) {
             console.error('⚠️ Database initialization failed:', err.message);
-            
-            // Check if it's a network/DNS issue
-            if (err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo')) {
-                console.error('🌐 Network/DNS issue detected - check Supabase project status');
-                console.error('💡 The Supabase project might be paused or the hostname is incorrect');
-            } else if (err.message.includes('timeout')) {
-                console.error('⏱️ Connection timeout - network might be slow or blocked');
-            }
-            
-            console.log('💡 Server will continue in offline mode - database will retry on first request');
-            
-            // Schedule retry with exponential backoff
-            const retryDelay = Math.min(60000 * Math.pow(2, Math.floor(Date.now() / 60000) % 4), 300000); // Max 5 minutes
-            setTimeout(() => {
-                console.log('🔄 Retrying database initialization...');
-                warmUpDatabase();
-            }, retryDelay);
+            console.log('💡 Server will continue - database will retry on first request');
         }
-    }, 15000); // Wait 15 seconds before ANY database operation
+    }, 5000); // Wait 5 seconds before ANY database operation
 }
 
 async function startServer() {
@@ -688,19 +677,20 @@ async function startServer() {
         console.log(`🚀 ERP System Server running on port ${PORT}`);
         console.log('✅ Server is LIVE and accepting requests immediately!');
 
-        // Heartbeat to keep connection active (prevents idle disconnection)
+        // Optimized heartbeat to keep connection active (prevents idle disconnection)
         setInterval(async () => {
             if (isDbReady) {
                 try {
-                    // Simple lightweight query
                     await db.query('SELECT 1');
                     // Silent success - only log failures
                 } catch (e) {
-                    console.warn('⚠️ Heartbeat failed:', e.message);
-                    // Don't retry here, let the normal retry mechanism handle it
+                    // Reduce heartbeat error frequency in production
+                    if (!isProduction || Math.random() < 0.1) { // Log 10% of errors in production
+                        console.warn('⚠️ Heartbeat failed:', e.message);
+                    }
                 }
             }
-        }, 120000); // Every 2 minutes (reduced frequency to avoid overwhelming)
+        }, 30000); // Every 30 seconds (reduced from 60s for better connection keeping)
     });
 
     // 2. Initialize Database in Background (completely async, no blocking)
