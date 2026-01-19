@@ -27,7 +27,34 @@ const path = require('path');
 const db = require('./db'); // Use the new PG module
 
 const app = express();
-// Remove isDbReady flag as we now block startup until DB is ready
+let isDbReady = false; // 🚦 Flag to track DB readiness
+
+// 🚦 MIDDLEWARE: WAIT FOR DB
+// Queues API requests until the database connection is established
+app.use(async (req, res, next) => {
+    // Only block API routes and Auth
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+        if (!isDbReady) {
+            console.log(`🚦 Request ${req.path} queued - waiting for DB wake-up...`);
+            // Wait up to 60 seconds for DB
+            const waitForReady = async () => {
+                let checks = 0;
+                while (!isDbReady && checks < 30) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    checks++;
+                }
+                return isDbReady;
+            };
+
+            const ready = await waitForReady();
+            if (!ready) {
+                console.error('❌ Request timed out waiting for DB');
+                return res.status(503).json({ error: 'Database is warming up. Please refresh the page in a moment.' });
+            }
+        }
+    }
+    next();
+});
 
 
 // Middleware
@@ -627,19 +654,20 @@ app.use((req, res, next) => {
 
 
 
-async function startServer() {
-    const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 10000 : 3100);
-
-    console.log("⏳ Warming database...");
+async function warmUpDatabase() {
+    console.log("⏳ Warming database and caches in background...");
 
     let connected = false;
+    let attempts = 0;
     while (!connected) {
         try {
-            await db.query("SELECT 1"); // Block until DB wakes up
+            attempts++;
+            await db.query("SELECT 1"); // Check connection
             connected = true;
-            console.log("✅ Database is READY");
+            isDbReady = true; // 🔓 UNBLOCK REQUESTS
+            console.log("✅ Database is READY & Connected");
         } catch (err) {
-            console.log(`💤 Database sleeping/unavailable. Waiting... (${err.message})`);
+            console.log(`💤 Database sleeping/unavailable (Attempt ${attempts}). Waiting... (${err.message})`);
             await new Promise(r => setTimeout(r, 2000));
         }
     }
@@ -658,9 +686,18 @@ async function startServer() {
     } catch (e) {
         console.error("⚠️ Cache/Admin Init Warning:", e.message);
     }
+}
 
+async function startServer() {
+    const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 10000 : 3100);
+
+    // 1. Start Server IMMEDIATELY (Satisfies Render Port Scan)
     app.listen(PORT, () => {
         console.log(`🚀 ERP System Server running on port ${PORT}`);
+        console.log('✅ Server accepted request binding immediately.');
+
+        // 2. Start Background Warmup
+        warmUpDatabase();
     });
 }
 
