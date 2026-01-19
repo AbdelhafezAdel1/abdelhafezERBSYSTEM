@@ -40,7 +40,7 @@ class DataCache {
             this.isLoaded = true;
             this.lastRefresh = new Date();
             const duration = Date.now() - start;
-            
+
             console.log(`✅ DataCache loaded in ${duration}ms: ${this.companies.length} companies, ${this.invoices.length} invoices, ${this.bonds.length} bonds`);
         } catch (err) {
             console.error('❌ Failed to load DataCache:', err.message);
@@ -59,15 +59,17 @@ class DataCache {
     // --- Companies ---
     async getCompanies() {
         await this.ensureFresh();
-        return this.companies;
+        return Array.isArray(this.companies) ? this.companies : [];
     }
 
     addCompany(company) {
+        if (!Array.isArray(this.companies)) this.companies = [];
         this.companies.push(company);
         this.companies.sort((a, b) => a.name.localeCompare(b.name));
     }
 
     updateCompany(id, updatedData) {
+        if (!Array.isArray(this.companies)) return;
         const index = this.companies.findIndex(c => c.id == id);
         if (index !== -1) {
             this.companies[index] = { ...this.companies[index], ...updatedData };
@@ -75,13 +77,15 @@ class DataCache {
     }
 
     deleteCompany(id) {
+        if (!Array.isArray(this.companies)) return;
         this.companies = this.companies.filter(c => c.id != id);
     }
 
     // --- Invoices ---
     async getInvoices(filters = {}) {
         await this.ensureFresh();
-        let results = this.invoices;
+        // Defensive: ensure this.invoices is an array
+        let results = Array.isArray(this.invoices) ? this.invoices : [];
 
         if (filters.companyId) {
             results = results.filter(i => i.company_id == filters.companyId);
@@ -101,14 +105,19 @@ class DataCache {
     }
 
     addInvoice(invoice) {
+        if (!Array.isArray(this.companies)) this.companies = [];
         const company = this.companies.find(c => c.id == invoice.company_id);
         if (company) invoice.company_name = company.name;
+
+        if (!Array.isArray(this.invoices)) this.invoices = [];
         this.invoices.unshift(invoice); // Add to top
     }
 
     updateInvoice(id, updatedData) {
+        if (!Array.isArray(this.invoices)) return;
         const index = this.invoices.findIndex(i => i.id == id);
         if (index !== -1) {
+            if (!Array.isArray(this.companies)) this.companies = [];
             const company = this.companies.find(c => c.id == (updatedData.company_id || this.invoices[index].company_id));
             const company_name = company ? company.name : this.invoices[index].company_name;
             this.invoices[index] = { ...this.invoices[index], ...updatedData, company_name };
@@ -116,18 +125,22 @@ class DataCache {
     }
 
     deleteInvoice(id) {
+        if (!Array.isArray(this.invoices)) return;
         this.invoices = this.invoices.filter(i => i.id != id);
     }
 
     // --- Bonds ---
     async getBonds() {
         await this.ensureFresh();
-        return this.bonds;
+        return Array.isArray(this.bonds) ? this.bonds : [];
     }
 
     addBond(bond) {
+        if (!Array.isArray(this.companies)) this.companies = [];
         const company = this.companies.find(c => c.id == bond.company_id);
         if (company) bond.company_name = company.name;
+
+        if (!Array.isArray(this.bonds)) this.bonds = [];
         this.bonds.unshift(bond);
     }
 
@@ -141,23 +154,34 @@ class DataCache {
         return {
             isLoaded: this.isLoaded,
             lastRefresh: this.lastRefresh,
-            companies: this.companies.length,
-            invoices: this.invoices.length,
-            bonds: this.bonds.length,
+            companies: Array.isArray(this.companies) ? this.companies.length : 0,
+            invoices: Array.isArray(this.invoices) ? this.invoices.length : 0,
+            bonds: Array.isArray(this.bonds) ? this.bonds.length : 0,
             memoryUsage: process.memoryUsage()
         };
     }
 
     // --- Dashboard Stats (Calculated in Memory) ---
-    getDashboardStats(filters = {}) {
+    // Made async to await getInvoices
+    async getDashboardStats(filters = {}) {
         // Filter invoices first
-        const filteredInvoices = this.getInvoices(filters);
+        const filteredInvoices = await this.getInvoices(filters);
+
+        // Defensive check explicitly requested
+        if (!Array.isArray(filteredInvoices)) {
+            console.warn('⚠️ getDashboardStats: filteredInvoices is not an array!', filteredInvoices);
+            return {
+                stats: { total_invoices: 0, total_revenue: 0, total_vat: 0, total_companies: 0 },
+                monthly_revenue: [],
+                company_revenue: []
+            };
+        }
 
         // Calculate Totals
         const total_invoices = filteredInvoices.length;
         const total_revenue = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_after_tax || 0), 0);
         const total_vat = filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.vat_amount || 0), 0);
-        const total_companies = this.companies.length;
+        const total_companies = Array.isArray(this.companies) ? this.companies.length : 0;
 
         // Calculate Monthly Revenue (Last 6 months)
         // Group by YYYY-MM
@@ -176,11 +200,14 @@ class DataCache {
         // Calculate Company Revenue (Top 10)
         const companyMap = {};
         filteredInvoices.forEach(inv => {
-            if (!companyMap[inv.company_name]) {
-                companyMap[inv.company_name] = { company_name: inv.company_name, revenue: 0, invoice_count: 0 };
+            // Ensure company_name exists
+            const companyName = inv.company_name || 'Unknown';
+
+            if (!companyMap[companyName]) {
+                companyMap[companyName] = { company_name: companyName, revenue: 0, invoice_count: 0 };
             }
-            companyMap[inv.company_name].revenue += parseFloat(inv.total_after_tax || 0);
-            companyMap[inv.company_name].invoice_count++;
+            companyMap[companyName].revenue += parseFloat(inv.total_after_tax || 0);
+            companyMap[companyName].invoice_count++;
         });
 
         const company_revenue = Object.values(companyMap)
