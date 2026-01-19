@@ -27,7 +27,8 @@ const path = require('path');
 const db = require('./db'); // Use the new PG module
 
 const app = express();
-let isDbReady = false; // 🚦 Flag to track DB readiness (for logging only)
+let isDbReady = false; // 🚦 Flag tracks if "SELECT 1" has succeeded
+let dbInitPromise = null; // Promise to track initialization state
 
 // Middleware
 app.use(bodyParser.json());
@@ -40,7 +41,34 @@ app.use('/js', express.static(path.join(__dirname, '../frontend/js')));
 app.use('/images', express.static(path.join(__dirname, '../frontend/images')));
 app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
-// 🚀 PRODUCTION STARTUP: Use memory session store with warning suppression
+// � MIDDLEWARE: WAIT FOR DB
+// Queues API requests until the database connection is established
+app.use(async (req, res, next) => {
+    // Only block API routes, allow static files and login page to load
+    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+        if (!isDbReady) {
+            console.log(`🚦 Request ${req.path} queued - waiting for DB wake-up...`);
+            // Wait up to 30 seconds for DB
+            const waitForReady = async () => {
+                let checks = 0;
+                while (!isDbReady && checks < 30) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    checks++;
+                }
+                return isDbReady;
+            };
+
+            const ready = await waitForReady();
+            if (!ready) {
+                console.error('❌ Request timed out waiting for DB');
+                return res.status(503).json({ error: 'Database is warming up, please try again in a moment.' });
+            }
+        }
+    }
+    next();
+});
+
+// �🚀 PRODUCTION STARTUP: Use memory session store with warning suppression
 // For production with multiple instances, consider Redis or sticky sessions
 const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1); // Trust first proxy (Render)
@@ -627,67 +655,63 @@ app.use((req, res, next) => {
 
 
 async function warmUpDatabase() {
-    console.log('🚀 Server starting with ZERO database dependencies...');
-    console.log('⏳ Database initialization will begin in 10 seconds...');
+    console.log('� Starting background database initialization IMMEDIATELY...');
 
-    // Mark as ready immediately - no blocking
-    isDbReady = true;
+    // Check if simple query works
+    try {
+        let connected = false;
+        let attempts = 0;
 
-    // Wait 10 seconds before attempting ANY database operations
-    // This gives Render and Supabase time to stabilize the connection
-    setTimeout(async () => {
-        console.log('🔄 Starting background database initialization...');
+        // Loop until connected or very long timeout
+        while (!connected && attempts < 50) {
+            try {
+                attempts++;
+                if (attempts > 1) console.log(`🔄 [Attempt ${attempts}] Pinging database...`);
+
+                await db.query('SELECT 1');
+                connected = true;
+                isDbReady = true; // 🔓 UNBLOCK REQUESTS
+                console.log('✅ Database connected successfully! Requests unblocked.');
+            } catch (e) {
+                console.log(`💤 Database sleeping/unavailable. Waiting 2s... (${e.message})`);
+                await new Promise(r => setTimeout(r, 2000)); // Fixed 2s check interval
+            }
+        }
+
+        if (!connected) {
+            console.error('❌ CRITICAL: Could not connect to database after many attempts.');
+            return;
+        }
+
+        // Load caches sequentially AFTER connection
+        console.log('📥 Loading caches...');
 
         try {
-            // Reliable Connection Loop (Handles Supabase Sleep Mode)
-            let connected = false;
-            let attempts = 0;
-            // Infinite loop until connected - server is useless without DB
-            while (!connected) {
-                try {
-                    attempts++;
-                    const isRetrying = attempts > 1;
-                    if (isRetrying) console.log(`🔄 [Attempt ${attempts}] Waiting for database...`);
+            await UserCache.init();
+            console.log('✅ User cache loaded');
 
-                    await db.query('SELECT 1');
-                    connected = true;
-                    console.log('✅ Database connected successfully! System ready.');
-                } catch (e) {
-                    console.log(`💤 Database sleeping/unavailable. Retrying in 10s... (${e.message})`);
-                    await new Promise(r => setTimeout(r, 10000));
-                }
-            }
-            // Logic continues after connection
-
-            // Load caches (non-blocking)
-            UserCache.init().then(() => {
-                console.log('✅ User cache loaded');
-            }).catch(err => {
-                console.warn('⚠️ User cache failed:', err.message);
-            });
-
-            DataCache.init().then(() => {
-                console.log('✅ Data cache loaded');
-            }).catch(err => {
-                console.warn('⚠️ Data cache failed:', err.message);
-            });
-
-            // Ensure admin user (non-blocking)
-            db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username])
-                .then(result => {
-                    if (result.rows.length === 0) {
-                        return db.query('INSERT INTO users (username, password) VALUES ($1, $2)',
-                            [SEED_USER.username, SEED_USER.password]);
-                    }
-                })
-                .then(() => console.log('✅ Admin user verified'))
-                .catch(err => console.warn('⚠️ Admin user check failed:', err.message));
-
-        } catch (err) {
-            console.error('⚠️ Database initialization failed:', err.message);
-            console.log('💡 Server will continue - database will retry on first request');
+            await DataCache.init();
+            console.log('✅ Data cache loaded');
+        } catch (cacheErr) {
+            console.warn('⚠️ Cache init partial failure:', cacheErr.message);
         }
-    }, 10000); // Wait 10 seconds before ANY database operation
+
+        // Ensure admin user
+        try {
+            const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
+            if (result.rows.length === 0) {
+                await db.query('INSERT INTO users (username, password) VALUES ($1, $2)', [SEED_USER.username, SEED_USER.password]);
+                console.log('✅ Admin user created');
+            } else {
+                console.log('✅ Admin user verified');
+            }
+        } catch (err) {
+            console.warn('⚠️ Admin user check failed:', err.message);
+        }
+
+    } catch (err) {
+        console.error('⚠️ Database initialization failed:', err.message);
+    }
 }
 
 async function startServer() {

@@ -60,7 +60,7 @@ if (fallbackPool) {
 
 // Helper Functions
 async function query(text, params = []) {
-    const maxRetries = 3;
+    const maxRetries = 5; // Increased retries
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -97,10 +97,11 @@ async function query(text, params = []) {
 
         } catch (err) {
             lastError = err;
-            const isConnectionError = err.message.includes('timeout') || err.message.includes('connection');
+            const isConnectionError = err.message.includes('timeout') || err.message.includes('connection') || err.code === 'ECONNREFUSED' || err.code === '57P01';
 
             if (isConnectionError && attempt < maxRetries) {
-                const delay = attempt * 2000; // 2s, 4s, 6s...
+                // Exponential backoff: 2s, 4s, 8s, 16s...
+                const delay = Math.pow(2, attempt) * 1000;
                 console.log(`⏳ Connection timed out. Retrying in ${delay}ms...`);
                 await new Promise(res => setTimeout(res, delay));
             } else {
