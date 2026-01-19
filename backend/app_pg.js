@@ -179,10 +179,10 @@ app.put('/auth/update-user', async (req, res) => {
 });
 
 // ---------- Companies ----------
-app.get('/api/companies', (req, res) => {
+app.get('/api/companies', async (req, res) => {
     // 1. Try Cache First
     if (DataCache.isLoaded) {
-        const cachedCompanies = DataCache.getCompanies();
+        const cachedCompanies = await DataCache.getCompanies();
         if (cachedCompanies.length > 0) {
             console.log(`🚀 Serving ${cachedCompanies.length} companies from Cache`);
             return res.json(cachedCompanies);
@@ -225,13 +225,14 @@ app.get('/api/invoices', async (req, res) => {
     // 1. Try Cache First
     if (DataCache.isLoaded) {
         // Apply filters in memory
-        const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
+        const filtered = await DataCache.getInvoices({ startDate, endDate, companyId });
 
         // Only return cache if it has data OR if we are filtering (maybe search result is truly empty)
         // But if no filters and cache is empty, we should double check DB
         const hasFilters = startDate || endDate || companyId;
+        const allInvoices = await DataCache.getInvoices();
 
-        if (filtered.length > 0 || (hasFilters && DataCache.getInvoices().length > 0)) {
+        if (filtered.length > 0 || (hasFilters && allInvoices.length > 0)) {
             console.log(`🚀 Serving ${filtered.length} invoices from Cache. Filters: ${JSON.stringify({ startDate, endDate, companyId })}`);
             return res.json(filtered);
         }
@@ -440,7 +441,7 @@ app.put('/api/invoices/:id', async (req, res) => {
 app.get('/api/bonds', async (req, res) => {
     // 🚀 Speed: Read from Memory
     if (DataCache.isLoaded) {
-        return res.json(DataCache.getBonds());
+        return res.json(await DataCache.getBonds());
     }
 
     // Fallback
@@ -475,13 +476,18 @@ app.get('/api/dashboard', async (req, res) => {
     if (DataCache.isLoaded) {
         try {
             console.log('🚀 Calculating dashboard stats from Memory Cache...');
-            let invoices = DataCache.getInvoices({ startDate, endDate, companyId });
+            let invoices = await DataCache.getInvoices({ startDate, endDate, companyId });
+            let companies = await DataCache.getCompanies();
+
+            // 🛡️ Defensive Check: Ensure we have arrays
+            if (!Array.isArray(invoices)) invoices = [];
+            if (!Array.isArray(companies)) companies = [];
 
             // 1. General Stats
             const total_invoices = invoices.length;
             const total_revenue = invoices.reduce((sum, inv) => sum + (parseFloat(inv.total_after_tax) || 0), 0);
             const total_vat = invoices.reduce((sum, inv) => sum + (parseFloat(inv.vat_amount) || 0), 0);
-            const total_companies = DataCache.getCompanies().length;
+            const total_companies = companies.length;
 
             // 2. Monthly Revenue
             const monthlyMap = {};
@@ -504,11 +510,8 @@ app.get('/api/dashboard', async (req, res) => {
             // 3. Company Revenue
             const companyMap = {};
             invoices.forEach(inv => {
-                // Find company name in cache if not present in invoice object (depends on DataCache structure, usually joined?)
-                // Actually DataCache.getInvoices might return raw invoice objects. 
-                // We need to look up company name.
                 let companyName = 'Unknown';
-                const comp = DataCache.getCompanies().find(c => c.id == inv.company_id);
+                const comp = companies.find(c => c.id == inv.company_id);
                 if (comp) companyName = comp.name;
 
                 if (!companyMap[companyName]) {
@@ -690,7 +693,7 @@ async function startServer() {
                     }
                 }
             }
-        }, 30000); // Every 30 seconds (reduced from 60s for better connection keeping)
+        }, 60000); // Every 60 seconds (optimized)
     });
 
     // 2. Initialize Database in Background (completely async, no blocking)

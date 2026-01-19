@@ -73,7 +73,7 @@ function recordFailure() {
     circuitBreaker.failureCount++;
     circuitBreaker.lastFailureTime = Date.now();
     circuitBreaker.consecutiveSuccesses = 0;
-    
+
     if (circuitBreaker.failureCount >= circuitBreaker.maxFailures) {
         circuitBreaker.isOpen = true;
         console.error(`🚨 Circuit breaker OPENED after ${circuitBreaker.failureCount} failures - blocking database requests`);
@@ -84,7 +84,7 @@ function recordFailure() {
 function recordSuccess() {
     circuitBreaker.failureCount = Math.max(0, circuitBreaker.failureCount - 1);
     circuitBreaker.consecutiveSuccesses++;
-    
+
     if (circuitBreaker.isOpen && circuitBreaker.consecutiveSuccesses >= circuitBreaker.minSuccessesToClose) {
         console.log(`✅ Circuit breaker CLOSED after ${circuitBreaker.consecutiveSuccesses} consecutive successes`);
         circuitBreaker.isOpen = false;
@@ -95,13 +95,13 @@ function recordSuccess() {
 // 🛡️ Pool Config optimized for Render + Supabase
 const poolConfig = {
     connectionString: connectionString,
-    max: 2,                         // Conservative for pooler
-    min: 0,                         // Don't hold connections initially
-    idleTimeoutMillis: 8000,         // 8s - Shorter for pooler
-    connectionTimeoutMillis: 8000,    // 8s - Faster timeout
-    query_timeout: 12000,            // 12s query timeout
-    statement_timeout: 12000,        // 12s statement timeout
-    allowExitOnIdle: false,         // Keep pool alive
+    max: 5,                         // Increased to 5 as requested
+    min: 0,
+    idleTimeoutMillis: 30000,       // 30s - Longer to keep connections alive
+    connectionTimeoutMillis: 5000,  // 5s - Fail fast if connection is stuck
+    query_timeout: 12000,
+    statement_timeout: 12000,
+    allowExitOnIdle: false,
     ssl: {
         rejectUnauthorized: false
     },
@@ -138,7 +138,7 @@ if (fallbackPool) {
     fallbackPool.on('error', (err) => {
         console.error('❌ Fallback DB Pool Error:', err.message);
     });
-    
+
     fallbackPool.on('connect', () => {
         console.log('🔌 Fallback DB Connected successfully');
     });
@@ -157,24 +157,24 @@ async function query(text, params = []) {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const currentPool = useFallback && fallbackPool ? fallbackPool : pool;
-        
+
         try {
             const start = Date.now();
             const result = await currentPool.query(text, params);
             const duration = Date.now() - start;
-            
+
             // Log slow queries
             if (duration > 1000) {
                 console.warn(`⚠️ Slow query (${duration}ms) on ${useFallback ? 'fallback' : 'primary'}: ${text.substring(0, 100)}...`);
             }
-            
+
             // Success on primary - record success and return
             if (!useFallback) {
                 recordSuccess();
             }
-            
+
             return result;
-            
+
         } catch (err) {
             lastError = err;
 
@@ -239,31 +239,31 @@ async function testConnection() {
         try {
             console.log(`🔍 Testing ${name.toLowerCase()} database connection...`);
             const start = Date.now();
-            
+
             const result = await currentPool.query('SELECT 1 as test, NOW() as server_time, version() as version');
             const duration = Date.now() - start;
-            
+
             console.log(`✅ ${name} DB Connection Verified`);
             console.log(`   Response time: ${duration}ms`);
             console.log(`   Server time: ${result.rows[0].server_time}`);
             console.log(`   Version: ${result.rows[0].version.split(' ')[0]}`);
-            
+
             return true;
         } catch (err) {
             console.error(`❌ ${name} DB Connection Failed:`, err.message);
-            
+
             if (name === 'Primary' && fallbackPool) {
                 console.log('🔄 Will try fallback connection...');
                 continue;
             }
-            
+
             console.error('💡 Troubleshooting steps:');
             console.error('   1. Check if Supabase project is active');
             console.error('   2. Verify DATABASE_URL is correct');
             console.error('   3. Try using direct connection (port 5432) instead of pooler (port 6543)');
             console.error('   4. Check network connectivity');
             console.error('   5. Verify SSL certificates');
-            
+
             if (err.code === 'ECONNREFUSED') {
                 console.error('   ❌ Connection refused - Check host and port');
             } else if (err.code === '28P01') {
@@ -271,11 +271,11 @@ async function testConnection() {
             } else if (err.code === '3D000') {
                 console.error('   ❌ Database does not exist - Check database name');
             }
-            
+
             return false;
         }
     }
-    
+
     return false;
 }
 
