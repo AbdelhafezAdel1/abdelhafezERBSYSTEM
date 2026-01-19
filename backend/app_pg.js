@@ -4,7 +4,6 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
 const db = require('./db'); // Use the new PG module
-const QRCode = require('qrcode');
 
 const app = express();
 let isDbReady = false; // 🚦 Flag to track DB readiness (for logging only)
@@ -682,7 +681,7 @@ async function warmUpDatabase() {
 }
 
 async function startServer() {
-    const PORT = process.env.PORT || 3100;
+    const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 10000 : 3100);
 
     // 1. Start Server IMMEDIATELY (no dependencies)
     app.listen(PORT, () => {

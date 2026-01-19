@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     clearance_fee DECIMAL(15,2) DEFAULT 0,
     vat_amount DECIMAL(15,2) DEFAULT 0,
     total_after_tax DECIMAL(15,2) DEFAULT 0,
-    status TEXT CHECK(status IN ('Draft', 'Issued')) DEFAULT 'Draft',
+    status TEXT CHECK(status IN ('Draft', 'Issued', 'Final')) DEFAULT 'Draft',
     qr_code TEXT,  -- Base64 encoded QR
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     category TEXT CHECK(category IN ('Booking 1', 'Booking 2', 'Insurance', 'Translation', 'Clearance', 'Manual item')),
     quantity INTEGER NOT NULL DEFAULT 1,
     unit_price DECIMAL(15,2) NOT NULL DEFAULT 0,
-    line_total DECIMAL(15,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    line_total DECIMAL(15,2) NOT NULL DEFAULT 0,
     taxable BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

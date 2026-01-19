@@ -2,6 +2,8 @@ const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+const enableFallback = String(process.env.ENABLE_DB_FALLBACK || '').toLowerCase() === 'true';
+
 // 🔌 DATABASE CONNECTION CONFIG WITH FALLBACK
 let connectionString = process.env.DATABASE_URL;
 let fallbackConnectionString = null;
@@ -17,25 +19,10 @@ if (!connectionString && process.env.DB_HOST) {
     connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
 }
 
-// Create fallback URL (direct connection) if using pooler
-if (connectionString && connectionString.includes('pooler')) {
-    try {
-        // Parse the current connection string
-        const url = new URL(connectionString);
-        
-        // Replace pooler hostname with db hostname
-        const hostname = url.hostname.replace('pooler.supabase.com', 'db.supabase.com');
-        
-        // Change port from 6543 to 5432 for direct connection
-        url.hostname = hostname;
-        url.port = '5432';
-        
-        fallbackConnectionString = url.toString();
-        console.log('✅ Fallback URL generated successfully');
-    } catch (err) {
-        console.warn('⚠️ Failed to generate fallback URL:', err.message);
-        fallbackConnectionString = null;
-    }
+// Fallback is OPT-IN ONLY and must be explicitly provided.
+// This avoids incorrect host guessing (ENOTFOUND) and keeps primary on port 6543.
+if (enableFallback && process.env.DATABASE_URL_FALLBACK) {
+    fallbackConnectionString = process.env.DATABASE_URL_FALLBACK;
 }
 
 // Validate connection string
@@ -49,7 +36,7 @@ console.log('🔌 DB Config Check:');
 const safeConnString = connectionString.replace(/:[^:@]+@/, ':***@');
 console.log(`   Primary: ${safeConnString}`);
 
-if (fallbackConnectionString) {
+if (enableFallback && fallbackConnectionString) {
     const safeFallback = fallbackConnectionString.replace(/:[^:@]+@/, ':***@');
     console.log(`   Fallback: ${safeFallback}`);
 }
@@ -134,7 +121,7 @@ const fallbackPoolConfig = {
 };
 
 const pool = new Pool(poolConfig);
-const fallbackPool = fallbackConnectionString ? new Pool(fallbackPoolConfig) : null;
+const fallbackPool = enableFallback && fallbackConnectionString ? new Pool(fallbackPoolConfig) : null;
 
 // Pool event handlers
 pool.on('error', (err) => {
