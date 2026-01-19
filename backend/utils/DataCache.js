@@ -6,11 +6,14 @@ class DataCache {
         this.invoices = [];
         this.bonds = [];
         this.isLoaded = false;
+        this.lastRefresh = null;
+        this.refreshInterval = 5 * 60 * 1000; // 5 minutes
     }
 
     async init() {
         try {
             console.log('🔄 Loading operational data into memory...');
+            const start = Date.now();
 
             // Load Companies
             const companiesRes = await db.query('SELECT * FROM companies ORDER BY name');
@@ -35,14 +38,27 @@ class DataCache {
             this.bonds = bondsRes.rows;
 
             this.isLoaded = true;
-            console.log(`✅ تم استرجاع جميع الفواتير والبيانات من قاعدة البيانات بنجاح: ${this.companies.length} شركة, ${this.invoices.length} فاتورة.`);
+            this.lastRefresh = new Date();
+            const duration = Date.now() - start;
+            
+            console.log(`✅ DataCache loaded in ${duration}ms: ${this.companies.length} companies, ${this.invoices.length} invoices, ${this.bonds.length} bonds`);
         } catch (err) {
-            console.error('❌ Failed to load DataCache (Data might be stale or empty):', err.message);
+            console.error('❌ Failed to load DataCache:', err.message);
+            // Don't set isLoaded to true on error
+            this.isLoaded = false;
+        }
+    }
+
+    // Auto-refresh if needed
+    async ensureFresh() {
+        if (!this.isLoaded || !this.lastRefresh || (Date.now() - this.lastRefresh.getTime()) > this.refreshInterval) {
+            await this.init();
         }
     }
 
     // --- Companies ---
-    getCompanies() {
+    async getCompanies() {
+        await this.ensureFresh();
         return this.companies;
     }
 
@@ -63,7 +79,8 @@ class DataCache {
     }
 
     // --- Invoices ---
-    getInvoices(filters = {}) {
+    async getInvoices(filters = {}) {
+        await this.ensureFresh();
         let results = this.invoices;
 
         if (filters.companyId) {
@@ -84,20 +101,16 @@ class DataCache {
     }
 
     addInvoice(invoice) {
-        // We ensure the invoice object has company_name for display
         const company = this.companies.find(c => c.id == invoice.company_id);
         if (company) invoice.company_name = company.name;
-
         this.invoices.unshift(invoice); // Add to top
     }
 
     updateInvoice(id, updatedData) {
         const index = this.invoices.findIndex(i => i.id == id);
         if (index !== -1) {
-            // Preserve company_name if not in updatedData
             const company = this.companies.find(c => c.id == (updatedData.company_id || this.invoices[index].company_id));
             const company_name = company ? company.name : this.invoices[index].company_name;
-
             this.invoices[index] = { ...this.invoices[index], ...updatedData, company_name };
         }
     }
@@ -107,7 +120,8 @@ class DataCache {
     }
 
     // --- Bonds ---
-    getBonds() {
+    async getBonds() {
+        await this.ensureFresh();
         return this.bonds;
     }
 
@@ -115,6 +129,23 @@ class DataCache {
         const company = this.companies.find(c => c.id == bond.company_id);
         if (company) bond.company_name = company.name;
         this.bonds.unshift(bond);
+    }
+
+    // --- Cache Management ---
+    async refresh() {
+        console.log('🔄 Manually refreshing DataCache...');
+        await this.init();
+    }
+
+    getCacheInfo() {
+        return {
+            isLoaded: this.isLoaded,
+            lastRefresh: this.lastRefresh,
+            companies: this.companies.length,
+            invoices: this.invoices.length,
+            bonds: this.bonds.length,
+            memoryUsage: process.memoryUsage()
+        };
     }
 
     // --- Dashboard Stats (Calculated in Memory) ---
