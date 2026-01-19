@@ -34,9 +34,9 @@ const poolConfig = {
     max: 5,
     min: 0,
     idleTimeoutMillis: 30000,       // 30s
-    connectionTimeoutMillis: 5000,  // 5s fail fast
-    query_timeout: 10000,           // 10s query timeout (strictly enforcement)
-    statement_timeout: 10000,
+    connectionTimeoutMillis: 30000, // 30s (Increased for Supabase Cold Starts)
+    query_timeout: 30000,           // 30s
+    statement_timeout: 30000,
     allowExitOnIdle: false,
     ssl: { rejectUnauthorized: false },
     keepAlive: true,
@@ -60,31 +60,56 @@ if (fallbackPool) {
 
 // Helper Functions
 async function query(text, params = []) {
-    let currentPool = pool;
-    let poolName = 'primary';
+    const maxRetries = 3;
+    let lastError = null;
 
-    try {
-        const start = Date.now();
-        const result = await currentPool.query(text, params);
-        const duration = Date.now() - start;
-        if (duration > 1000) console.warn(`⚠️ Slow query (${duration}ms): ${text.substring(0, 50)}...`);
-        return result;
-    } catch (err) {
-        // Only try fallback if it's a connection error AND fallback is available
-        const isConnectionError = err.message.includes('timeout') || err.message.includes('connection') || err.code === 'ECONNREFUSED';
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const start = Date.now();
 
-        if (isConnectionError && fallbackPool) {
-            console.warn(`🔄 Primary failed (${err.message}), trying fallback...`);
+            // 1. Try Primary Pool
             try {
-                return await fallbackPool.query(text, params);
-            } catch (fallbackErr) {
-                console.error(`❌ Fallback also failed: ${fallbackErr.message}`);
-                throw fallbackErr; // Throw original or fallback error? Throw fallback.
+                const result = await pool.query(text, params);
+                const duration = Date.now() - start;
+                if (duration > 1000) console.warn(`⚠️ Slow query (${duration}ms): ${text.substring(0, 50)}...`);
+                return result;
+            } catch (primaryErr) {
+                // If not a connection error (e.g. constraints), throw immediately
+                const isConnectionError = primaryErr.message.includes('timeout') ||
+                    primaryErr.message.includes('connection') ||
+                    primaryErr.code === 'ECONNREFUSED' ||
+                    primaryErr.code === '57P01';
+
+                if (!isConnectionError) throw primaryErr;
+
+                console.log(`ℹ️ [Attempt ${attempt}/${maxRetries}] Database wake-up/retry... (${primaryErr.message})`);
+
+                // 2. Try Fallback Pool (if enabled and connection error)
+                if (fallbackPool) {
+                    console.log(`🔌 Switching to Fallback Pool (Attempt ${attempt})...`);
+                    const result = await fallbackPool.query(text, params);
+                    console.log(`✅ Fallback Success`);
+                    return result;
+                } else {
+                    throw primaryErr; // No fallback, throw to trigger retry loop
+                }
+            }
+
+        } catch (err) {
+            lastError = err;
+            const isConnectionError = err.message.includes('timeout') || err.message.includes('connection');
+
+            if (isConnectionError && attempt < maxRetries) {
+                const delay = attempt * 2000; // 2s, 4s, 6s...
+                console.log(`⏳ Connection timed out. Retrying in ${delay}ms...`);
+                await new Promise(res => setTimeout(res, delay));
+            } else {
+                // Final attempt failed or non-retryable error
+                if (attempt === maxRetries) console.error(`❌ All DB attempts failed for: ${text.substring(0, 50)}`);
             }
         }
-
-        throw err;
     }
+    throw lastError;
 }
 
 async function getClient() {

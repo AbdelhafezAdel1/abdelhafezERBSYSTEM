@@ -628,20 +628,34 @@ app.use((req, res, next) => {
 
 async function warmUpDatabase() {
     console.log('🚀 Server starting with ZERO database dependencies...');
-    console.log('⏳ Database initialization will begin in 20 seconds...');
+    console.log('⏳ Database initialization will begin in 10 seconds...');
 
     // Mark as ready immediately - no blocking
     isDbReady = true;
 
-    // Wait 20 seconds before attempting ANY database operations
+    // Wait 10 seconds before attempting ANY database operations
     // This gives Render and Supabase time to stabilize the connection
     setTimeout(async () => {
         console.log('🔄 Starting background database initialization...');
 
         try {
-            // Quick connection test
-            await db.query('SELECT 1');
-            console.log('✅ Database connected successfully');
+            // Reliable Connection Loop (Handles Supabase Sleep Mode)
+            let connected = false;
+            let attempts = 0;
+            while (!connected && attempts < 10) {
+                try {
+                    attempts++;
+                    console.log(`🔄 [${attempts}/10] Connecting to database...`);
+                    await db.query('SELECT 1');
+                    connected = true;
+                    console.log('✅ Database connected successfully');
+                } catch (e) {
+                    console.log(`💤 Database is sleeping or network slow. Waiting 5s... (${e.message})`);
+                    await new Promise(r => setTimeout(r, 5000));
+                }
+            }
+
+            if (!connected) throw new Error("Could not connect to DB after 10 attempts");
 
             // Load caches (non-blocking)
             UserCache.init().then(() => {
@@ -671,7 +685,7 @@ async function warmUpDatabase() {
             console.error('⚠️ Database initialization failed:', err.message);
             console.log('💡 Server will continue - database will retry on first request');
         }
-    }, 5000); // Wait 5 seconds before ANY database operation
+    }, 10000); // Wait 10 seconds before ANY database operation
 }
 
 async function startServer() {
