@@ -642,20 +642,22 @@ async function warmUpDatabase() {
             // Reliable Connection Loop (Handles Supabase Sleep Mode)
             let connected = false;
             let attempts = 0;
-            while (!connected && attempts < 10) {
+            // Infinite loop until connected - server is useless without DB
+            while (!connected) {
                 try {
                     attempts++;
-                    console.log(`🔄 [${attempts}/10] Connecting to database...`);
+                    const isRetrying = attempts > 1;
+                    if (isRetrying) console.log(`🔄 [Attempt ${attempts}] Waiting for database...`);
+
                     await db.query('SELECT 1');
                     connected = true;
-                    console.log('✅ Database connected successfully');
+                    console.log('✅ Database connected successfully! System ready.');
                 } catch (e) {
-                    console.log(`💤 Database is sleeping or network slow. Waiting 5s... (${e.message})`);
-                    await new Promise(r => setTimeout(r, 5000));
+                    console.log(`💤 Database sleeping/unavailable. Retrying in 10s... (${e.message})`);
+                    await new Promise(r => setTimeout(r, 10000));
                 }
             }
-
-            if (!connected) throw new Error("Could not connect to DB after 10 attempts");
+            // Logic continues after connection
 
             // Load caches (non-blocking)
             UserCache.init().then(() => {

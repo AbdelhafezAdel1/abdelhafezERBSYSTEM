@@ -33,10 +33,10 @@ const poolConfig = {
     connectionString: connectionString,
     max: 5,
     min: 0,
-    idleTimeoutMillis: 30000,       // 30s
-    connectionTimeoutMillis: 30000, // 30s (Increased for Supabase Cold Starts)
-    query_timeout: 30000,           // 30s
-    statement_timeout: 30000,
+    idleTimeoutMillis: 60000,       // 60s
+    connectionTimeoutMillis: 60000, // 60s (Increased for Supabase Deep Sleep)
+    query_timeout: 60000,           // 60s
+    statement_timeout: 60000,
     allowExitOnIdle: false,
     ssl: { rejectUnauthorized: false },
     keepAlive: true,
