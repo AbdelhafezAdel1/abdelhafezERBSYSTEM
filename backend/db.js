@@ -119,7 +119,7 @@ const fallbackPoolConfig = {
     max: 1,                         // Single connection for fallback
     min: 0,
     idleTimeoutMillis: 30000,        // Longer for direct
-    connectionTimeoutMillis: 15000,   // Longer timeout for direct
+    connectionTimeoutMillis: 30000,   // Ultra tolerant for fallback
 };
 
 const pool = new Pool(poolConfig);
