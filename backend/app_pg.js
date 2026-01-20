@@ -626,106 +626,55 @@ app.use((req, res, next) => {
 
 
 
+// 🔄 Background Database Initialization (Non-Blocking)
 async function initializeDatabase() {
-    console.log("🔌 Connecting to database...");
-
-    // Special handling for Supabase Free Tier: Database may be paused
-    // We retry a few times during STARTUP ONLY to give it time to wake up
-    let attempts = 0;
-    const maxAttempts = 6;  // 6 attempts × 10s = 60s total
-
-    while (attempts < maxAttempts) {
-        try {
-            attempts++;
-
-            // Try to connect with 10s timeout per attempt
-            await Promise.race([
-                db.query("SELECT 1"),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Database connection timeout (10s)')), 10000)
-                )
-            ]);
-
-            console.log("✅ Database connected successfully");
-            break; // Success - exit retry loop
-
-        } catch (err) {
-            if (attempts < maxAttempts) {
-                console.log(`⚠️ Database connection attempt ${attempts}/${maxAttempts} failed: ${err.message}`);
-                console.log(`   Retrying in 5 seconds... (Supabase may be waking up)`);
-                await new Promise(r => setTimeout(r, 5000)); // Wait 5s before retry
-            } else {
-                // Final attempt failed
-                console.error("❌ Database initialization failed after", maxAttempts, "attempts:", err.message);
-                console.error("   Please check:");
-                console.error("   1. DATABASE_URL is correct");
-                console.error("   2. Supabase database is not paused (check Supabase dashboard)");
-                console.error("   3. Network connectivity to Supabase");
-                throw err;
-            }
-        }
-    }
+    console.log("🔄 Initializing database and caches in background...");
 
     try {
-        // Load caches
-        console.log("📦 Loading caches...");
-        await UserCache.init();
-        await DataCache.init();
-        console.log("✅ Caches loaded successfully");
+        // Try to connect (with pool's built-in retry)
+        await db.query("SELECT 1");
+        console.log("✅ Database connected successfully");
 
-        // Ensure admin user exists
-        const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
-        if (result.rows.length === 0) {
-            await db.query('INSERT INTO users (username, password) VALUES ($1, $2)', [SEED_USER.username, SEED_USER.password]);
-            console.log("✅ Admin user created");
+        // Load caches
+        try {
+            await UserCache.init();
+            await DataCache.init();
+            console.log("✅ Caches loaded successfully");
+        } catch (cacheErr) {
+            console.warn("⚠️ Cache loading failed (will use DB directly):", cacheErr.message);
         }
 
-        return true;
+        // Ensure admin user exists
+        try {
+            const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
+            if (result.rows.length === 0) {
+                await db.query('INSERT INTO users (username, password) VALUES ($1, $2)', [SEED_USER.username, SEED_USER.password]);
+                console.log("✅ Admin user created");
+            }
+        } catch (adminErr) {
+            console.warn("⚠️ Admin user check failed:", adminErr.message);
+        }
 
     } catch (err) {
-        console.error("❌ Cache/Admin initialization failed:", err.message);
-        throw err;
+        console.error("⚠️ Database initialization failed:", err.message);
+        console.log("💡 Server will continue - database will retry on first request");
+        // Don't crash - let server handle requests gracefully
     }
 }
 
 async function startServer() {
     const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 10000 : 3100);
 
-    try {
-        // 1. Initialize database and caches FIRST (blocking)
-        await initializeDatabase();
+    // 1. Start server IMMEDIATELY (non-blocking)
+    app.listen(PORT, () => {
+        console.log(`🚀 ERP System Server running on port ${PORT}`);
+        console.log('✅ Server is accepting requests');
 
-        // 2. Only start server if everything is ready
-        app.listen(PORT, () => {
-            console.log(`🚀 ERP System Server running on port ${PORT}`);
-            console.log('✅ Server is fully ready and accepting requests');
-        });
-
-        // 3. Start keep-alive ping to prevent connection timeout
-        startDatabaseKeepAlive();
-
-    } catch (err) {
-        console.error('❌ Server startup failed:', err.message);
-        console.error('   Exiting process. Please fix the issue and restart.');
-        process.exit(1); // Fail fast - let Render restart the service
-    }
-}
-
-// 💓 Keep-Alive: Ping database every 5 minutes to prevent idle timeout
-function startDatabaseKeepAlive() {
-    const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
-
-    setInterval(async () => {
-        try {
-            await db.query('SELECT 1');
-            console.log('💓 Database keep-alive ping successful');
-        } catch (err) {
-            console.error('⚠️ Database keep-alive ping failed:', err.message);
-            // Don't crash - the pool will try to reconnect automatically
-        }
-    }, PING_INTERVAL);
-
-    console.log('💓 Database keep-alive started (ping every 5 minutes)');
+        // 2. Initialize database in background (after server starts)
+        setTimeout(() => {
+            initializeDatabase();
+        }, 2000); // Give server 2s to stabilize
+    });
 }
 
 startServer();

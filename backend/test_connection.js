@@ -1,47 +1,80 @@
-// test_connection.js - اختبار الاتصال بقاعدة البيانات
-const db = require('./db');
+const { Pool } = require('pg');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+console.log('🧪 Testing Database Connection...\n');
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+    console.error('❌ DATABASE_URL not found in .env file');
+    process.exit(1);
+}
+
+console.log('🔌 Connection String:', connectionString.replace(/:[^:@]+@/, ':***@'));
+console.log('');
+
+const pool = new Pool({
+    connectionString: connectionString,
+    max: 1,
+    connectionTimeoutMillis: 60000, // 60s timeout
+    ssl: { rejectUnauthorized: false }
+});
 
 async function testConnection() {
-    console.log('🔍 اختبار الاتصال بقاعدة البيانات...\n');
+    console.log('⏳ Attempting to connect...');
+    const startTime = Date.now();
 
     try {
-        console.log('📡 محاولة الاتصال...');
-        const start = Date.now();
+        // Test basic query
+        const result = await pool.query('SELECT NOW() as current_time, version() as pg_version');
+        const duration = Date.now() - startTime;
 
-        const result = await db.query('SELECT NOW() as current_time, version() as pg_version');
+        console.log('✅ Connection successful!');
+        console.log(`⏱️  Connection time: ${duration}ms`);
+        console.log('📅 Server time:', result.rows[0].current_time);
+        console.log('🗄️  PostgreSQL version:', result.rows[0].pg_version.split(' ')[0]);
+        console.log('');
 
-        const duration = Date.now() - start;
+        // Test table access
+        console.log('🔍 Testing table access...');
+        const tables = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            ORDER BY table_name
+        `);
 
-        console.log('✅ الاتصال ناجح!');
-        console.log(`⏱️  الوقت المستغرق: ${duration}ms`);
-        console.log(`🕐 وقت السرفر: ${result.rows[0].current_time}`);
-        console.log(`📦 إصدار PostgreSQL: ${result.rows[0].pg_version}\n`);
+        console.log(`✅ Found ${tables.rows.length} tables:`);
+        tables.rows.forEach(row => console.log(`   - ${row.table_name}`));
+        console.log('');
 
-        // اختبار جدول المستخدمين
-        console.log('🔍 اختبار جدول المستخدمين...');
-        const usersResult = await db.query('SELECT COUNT(*) as user_count FROM users');
-        console.log(`👥 عدد المستخدمين: ${usersResult.rows[0].user_count}`);
+        // Test users table
+        const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
+        console.log(`👥 Users in database: ${userCount.rows[0].count}`);
 
-        // عرض المستخدمين
-        const allUsers = await db.query('SELECT id, username FROM users LIMIT 5');
-        console.log('\n📋 المستخدمون:');
-        allUsers.rows.forEach(user => {
-            console.log(`   - ID: ${user.id}, Username: ${user.username}`);
-        });
+        const companyCount = await pool.query('SELECT COUNT(*) as count FROM companies');
+        console.log(`🏢 Companies in database: ${companyCount.rows[0].count}`);
 
-        console.log('\n✅ جميع الاختبارات نجحت!');
-        process.exit(0);
+        const invoiceCount = await pool.query('SELECT COUNT(*) as count FROM invoices');
+        console.log(`📄 Invoices in database: ${invoiceCount.rows[0].count}`);
 
-    } catch (error) {
-        console.error('\n❌ فشل الاتصال!');
-        console.error('📝 تفاصيل الخطأ:', error.message);
-        console.error('🔧 الكود:', error.code);
-        console.error('\n💡 الحلول المقترحة:');
-        console.error('   1. تحقق من ملف .env');
-        console.error('   2. تأكد من أن قاعدة البيانات تعمل');
-        console.error('   3. تحقق من الـ firewall والشبكة');
-        console.error('   4. تأكد من صحة كلمة المرور');
+        console.log('');
+        console.log('🎉 All tests passed! Database is ready.');
+
+    } catch (err) {
+        const duration = Date.now() - startTime;
+        console.error('❌ Connection failed after', duration, 'ms');
+        console.error('Error:', err.message);
+        console.error('');
+        console.error('Possible causes:');
+        console.error('  1. Database is sleeping (Supabase Free Tier)');
+        console.error('  2. Wrong DATABASE_URL');
+        console.error('  3. Network/firewall issue');
+        console.error('  4. Database is paused in Supabase dashboard');
         process.exit(1);
+    } finally {
+        await pool.end();
     }
 }
 

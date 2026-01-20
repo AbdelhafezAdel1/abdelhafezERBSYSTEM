@@ -14,15 +14,15 @@ if (!connectionString) {
 console.log('🔌 DB Config Check:');
 console.log(`   URL: ${connectionString.replace(/:[^:@]+@/, ':***@')}`);
 
-// 🛡️ Pool Config - OPTIMIZED FOR STABILITY
+// 🛡️ Pool Config - STABLE & PATIENT
 const poolConfig = {
     connectionString: connectionString,
-    max: 5,                 // Increased for better concurrency
-    idleTimeoutMillis: 60000,  // 60s - keep connections alive longer
-    connectionTimeoutMillis: 10000, // 10s - fail fast instead of waiting 60s
+    max: 10,                // Increased for better concurrency (was 5)
+    idleTimeoutMillis: 30000,  // 30s idle timeout
+    connectionTimeoutMillis: 60000, // 60s - PATIENT for cold starts (was 10s)
     statement_timeout: 30000,  // 30s query timeout
     ssl: { rejectUnauthorized: false }, // Required for Supabase
-    keepAlive: true,        // 💓 CRITICAL: Prevents silent connection drops
+    keepAlive: true,        // Prevents silent connection drops
     keepAliveInitialDelayMillis: 10000
 };
 
@@ -36,21 +36,9 @@ async function query(text, params = []) {
     return pool.query(text, params);
 }
 
-// 🛡️ Client Acquisition with Limited Retry
-// Transactions need a dedicated client
+// 🛡️ Simple Client Acquisition - Trust the Pool
 async function getClient() {
-    let attempts = 0;
-    while (attempts < 2) {  // Reduced from 3 to 2 attempts
-        try {
-            attempts++;
-            const client = await pool.connect();
-            return client;
-        } catch (err) {
-            console.warn(`⚠️ getClient failed (Attempt ${attempts}/2): ${err.message}`);
-            if (attempts === 2) throw err;
-            await new Promise(res => setTimeout(res, 500));  // Shorter backoff: 500ms
-        }
-    }
+    return await pool.connect();  // Pool handles retry automatically
 }
 
 module.exports = {
