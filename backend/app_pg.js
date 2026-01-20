@@ -632,7 +632,7 @@ async function initializeDatabase() {
     // Special handling for Supabase Free Tier: Database may be paused
     // We retry a few times during STARTUP ONLY to give it time to wake up
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 6;  // 6 attempts × 10s = 60s total
 
     while (attempts < maxAttempts) {
         try {
@@ -701,11 +701,31 @@ async function startServer() {
             console.log('✅ Server is fully ready and accepting requests');
         });
 
+        // 3. Start keep-alive ping to prevent connection timeout
+        startDatabaseKeepAlive();
+
     } catch (err) {
         console.error('❌ Server startup failed:', err.message);
         console.error('   Exiting process. Please fix the issue and restart.');
         process.exit(1); // Fail fast - let Render restart the service
     }
+}
+
+// 💓 Keep-Alive: Ping database every 5 minutes to prevent idle timeout
+function startDatabaseKeepAlive() {
+    const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+    setInterval(async () => {
+        try {
+            await db.query('SELECT 1');
+            console.log('💓 Database keep-alive ping successful');
+        } catch (err) {
+            console.error('⚠️ Database keep-alive ping failed:', err.message);
+            // Don't crash - the pool will try to reconnect automatically
+        }
+    }, PING_INTERVAL);
+
+    console.log('💓 Database keep-alive started (ping every 5 minutes)');
 }
 
 startServer();
