@@ -6,8 +6,6 @@ class DataCache {
         this.invoices = [];
         this.bonds = [];
         this.isLoaded = false;
-        this.lastRefresh = null;
-        this.refreshInterval = 5 * 60 * 1000; // 5 minutes
     }
 
     async init() {
@@ -38,7 +36,6 @@ class DataCache {
             this.bonds = bondsRes.rows;
 
             this.isLoaded = true;
-            this.lastRefresh = new Date();
             const duration = Date.now() - start;
 
             console.log(`✅ DataCache loaded in ${duration}ms: ${this.companies.length} companies, ${this.invoices.length} invoices, ${this.bonds.length} bonds`);
@@ -49,16 +46,8 @@ class DataCache {
         }
     }
 
-    // Auto-refresh if needed
-    async ensureFresh() {
-        if (!this.isLoaded || !this.lastRefresh || (Date.now() - this.lastRefresh.getTime()) > this.refreshInterval) {
-            await this.init();
-        }
-    }
-
     // --- Companies ---
-    async getCompanies() {
-        await this.ensureFresh();
+    getCompanies() {
         return Array.isArray(this.companies) ? this.companies : [];
     }
 
@@ -82,8 +71,7 @@ class DataCache {
     }
 
     // --- Invoices ---
-    async getInvoices(filters = {}) {
-        await this.ensureFresh();
+    getInvoices(filters = {}) {
         // Defensive: ensure this.invoices is an array
         let results = Array.isArray(this.invoices) ? this.invoices : [];
 
@@ -130,8 +118,7 @@ class DataCache {
     }
 
     // --- Bonds ---
-    async getBonds() {
-        await this.ensureFresh();
+    getBonds() {
         return Array.isArray(this.bonds) ? this.bonds : [];
     }
 
@@ -153,7 +140,6 @@ class DataCache {
     getCacheInfo() {
         return {
             isLoaded: this.isLoaded,
-            lastRefresh: this.lastRefresh,
             companies: Array.isArray(this.companies) ? this.companies.length : 0,
             invoices: Array.isArray(this.invoices) ? this.invoices.length : 0,
             bonds: Array.isArray(this.bonds) ? this.bonds.length : 0,
@@ -162,10 +148,9 @@ class DataCache {
     }
 
     // --- Dashboard Stats (Calculated in Memory) ---
-    // Made async to await getInvoices
-    async getDashboardStats(filters = {}) {
+    getDashboardStats(filters = {}) {
         // Filter invoices first
-        const filteredInvoices = await this.getInvoices(filters);
+        const filteredInvoices = this.getInvoices(filters);
 
         // Defensive check explicitly requested
         if (!Array.isArray(filteredInvoices)) {

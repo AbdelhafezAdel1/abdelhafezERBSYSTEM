@@ -27,34 +27,6 @@ const path = require('path');
 const db = require('./db'); // Use the new PG module
 
 const app = express();
-let isDbReady = false; // 🚦 Flag to track DB readiness
-
-// 🚦 MIDDLEWARE: WAIT FOR DB
-// Queues API requests until the database connection is established
-app.use(async (req, res, next) => {
-    // Only block API routes and Auth
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
-        if (!isDbReady) {
-            console.log(`🚦 Request ${req.path} queued - waiting for DB wake-up...`);
-            // Wait up to 60 seconds for DB
-            const waitForReady = async () => {
-                let checks = 0;
-                while (!isDbReady && checks < 30) {
-                    await new Promise(r => setTimeout(r, 2000));
-                    checks++;
-                }
-                return isDbReady;
-            };
-
-            const ready = await waitForReady();
-            if (!ready) {
-                console.error('❌ Request timed out waiting for DB');
-                return res.status(503).json({ error: 'Database is warming up. Please refresh the page in a moment.' });
-            }
-        }
-    }
-    next();
-});
 
 
 // Middleware
@@ -212,7 +184,7 @@ app.put('/auth/update-user', async (req, res) => {
 app.get('/api/companies', async (req, res) => {
     // 1. Try Cache First
     if (DataCache.isLoaded) {
-        const cachedCompanies = await DataCache.getCompanies();
+        const cachedCompanies = DataCache.getCompanies();
         if (cachedCompanies.length > 0) {
             console.log(`🚀 Serving ${cachedCompanies.length} companies from Cache`);
             return res.json(cachedCompanies);
@@ -255,12 +227,12 @@ app.get('/api/invoices', async (req, res) => {
     // 1. Try Cache First
     if (DataCache.isLoaded) {
         // Apply filters in memory
-        const filtered = await DataCache.getInvoices({ startDate, endDate, companyId });
+        const filtered = DataCache.getInvoices({ startDate, endDate, companyId });
 
         // Only return cache if it has data OR if we are filtering (maybe search result is truly empty)
         // But if no filters and cache is empty, we should double check DB
         const hasFilters = startDate || endDate || companyId;
-        const allInvoices = await DataCache.getInvoices();
+        const allInvoices = DataCache.getInvoices();
 
         if (filtered.length > 0 || (hasFilters && allInvoices.length > 0)) {
             console.log(`🚀 Serving ${filtered.length} invoices from Cache. Filters: ${JSON.stringify({ startDate, endDate, companyId })}`);
@@ -471,7 +443,7 @@ app.put('/api/invoices/:id', async (req, res) => {
 app.get('/api/bonds', async (req, res) => {
     // 🚀 Speed: Read from Memory
     if (DataCache.isLoaded) {
-        return res.json(await DataCache.getBonds());
+        return res.json(DataCache.getBonds());
     }
 
     // Fallback
@@ -506,8 +478,8 @@ app.get('/api/dashboard', async (req, res) => {
     if (DataCache.isLoaded) {
         try {
             console.log('🚀 Calculating dashboard stats from Memory Cache...');
-            let invoices = await DataCache.getInvoices({ startDate, endDate, companyId });
-            let companies = await DataCache.getCompanies();
+            let invoices = DataCache.getInvoices({ startDate, endDate, companyId });
+            let companies = DataCache.getCompanies();
 
             // 🛡️ Defensive Check: Ensure we have arrays
             if (!Array.isArray(invoices)) invoices = [];
@@ -654,51 +626,60 @@ app.use((req, res, next) => {
 
 
 
-async function warmUpDatabase() {
-    console.log("⏳ Warming database and caches in background...");
+async function initializeDatabase() {
+    console.log("🔌 Connecting to database...");
 
-    let connected = false;
-    let attempts = 0;
-    while (!connected) {
-        try {
-            attempts++;
-            await db.query("SELECT 1"); // Check connection
-            connected = true;
-            isDbReady = true; // 🔓 UNBLOCK REQUESTS
-            console.log("✅ Database is READY & Connected");
-        } catch (err) {
-            console.log(`💤 Database sleeping/unavailable (Attempt ${attempts}). Waiting... (${err.message})`);
-            await new Promise(r => setTimeout(r, 2000));
-        }
-    }
-
-    // Now safe to load caches
     try {
+        // Single connection attempt with timeout
+        await Promise.race([
+            db.query("SELECT 1"),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Database connection timeout (10s)')), 10000)
+            )
+        ]);
+
+        console.log("✅ Database connected successfully");
+
+        // Load caches
+        console.log("📦 Loading caches...");
         await UserCache.init();
         await DataCache.init();
-        console.log("✅ Caches loaded");
+        console.log("✅ Caches loaded successfully");
 
-        // Ensure admin user
+        // Ensure admin user exists
         const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
         if (result.rows.length === 0) {
             await db.query('INSERT INTO users (username, password) VALUES ($1, $2)', [SEED_USER.username, SEED_USER.password]);
+            console.log("✅ Admin user created");
         }
-    } catch (e) {
-        console.error("⚠️ Cache/Admin Init Warning:", e.message);
+
+        return true;
+
+    } catch (err) {
+        console.error("❌ Database initialization failed:", err.message);
+        console.error("   Please check your DATABASE_URL and ensure Supabase is accessible");
+        throw err; // Re-throw to fail the startup
     }
 }
 
 async function startServer() {
     const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 10000 : 3100);
 
-    // 1. Start Server IMMEDIATELY (Satisfies Render Port Scan)
-    app.listen(PORT, () => {
-        console.log(`🚀 ERP System Server running on port ${PORT}`);
-        console.log('✅ Server accepted request binding immediately.');
+    try {
+        // 1. Initialize database and caches FIRST (blocking)
+        await initializeDatabase();
 
-        // 2. Start Background Warmup
-        warmUpDatabase();
-    });
+        // 2. Only start server if everything is ready
+        app.listen(PORT, () => {
+            console.log(`🚀 ERP System Server running on port ${PORT}`);
+            console.log('✅ Server is fully ready and accepting requests');
+        });
+
+    } catch (err) {
+        console.error('❌ Server startup failed:', err.message);
+        console.error('   Exiting process. Please fix the issue and restart.');
+        process.exit(1); // Fail fast - let Render restart the service
+    }
 }
 
 startServer();
