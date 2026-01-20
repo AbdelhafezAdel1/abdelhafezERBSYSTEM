@@ -19,7 +19,7 @@ const poolConfig = {
     connectionString: connectionString,
     max: 10,                // Increased for better concurrency (was 5)
     idleTimeoutMillis: 30000,  // 30s idle timeout
-    connectionTimeoutMillis: 60000, // 60s - PATIENT for cold starts (was 10s)
+    connectionTimeoutMillis: 120000, // 120s - VERY PATIENT for Supabase cold starts
     statement_timeout: 30000,  // 30s query timeout
     ssl: { rejectUnauthorized: false }, // Required for Supabase
     keepAlive: true,        // Prevents silent connection drops

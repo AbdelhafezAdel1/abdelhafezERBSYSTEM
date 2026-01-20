@@ -626,88 +626,44 @@ app.use((req, res, next) => {
 
 
 
-// 🔄 Background Database Initialization (Non-Blocking)
+// Simple Database Initialization (Blocking - Like Original)
 async function initializeDatabase() {
-    console.log("🔄 Initializing database and caches in background...");
+    console.log("� Connecting to database...");
 
-    let dbConnected = false;
-    let cacheLoaded = false;
-
-    try {
-        // Try to connect (with pool's built-in retry)
-        await db.query("SELECT 1");
-        console.log("✅ Database connected successfully");
-        dbConnected = true;
-
-        // Load caches
+    // Keep trying until connected (simple infinite loop)
+    while (true) {
         try {
-            await UserCache.init();
-            await DataCache.init();
-            console.log("✅ Caches loaded successfully");
-            cacheLoaded = true;
-        } catch (cacheErr) {
-            console.warn("⚠️ Cache loading failed (will retry automatically):", cacheErr.message);
+            await db.query("SELECT 1");
+            console.log("✅ Database connected");
+            break;
+        } catch (err) {
+            console.log("💤 Database sleeping, retrying in 5s...");
+            await new Promise(r => setTimeout(r, 5000));
         }
-
-        // Ensure admin user exists
-        try {
-            const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
-            if (result.rows.length === 0) {
-                await db.query('INSERT INTO users (username, password) VALUES ($1, $2)', [SEED_USER.username, SEED_USER.password]);
-                console.log("✅ Admin user created");
-            }
-        } catch (adminErr) {
-            console.warn("⚠️ Admin user check failed:", adminErr.message);
-        }
-
-    } catch (err) {
-        console.error("⚠️ Database initialization failed:", err.message);
-        console.log("💡 Server will continue - database will retry on first request");
     }
 
-    // 🔄 Auto-Retry Cache Loading if it failed
-    if (dbConnected && !cacheLoaded) {
-        console.log("🔄 Cache auto-retry scheduled in 30 seconds...");
-        setTimeout(async () => {
-            await retryCacheLoad();
-        }, 30000);
-    }
-}
+    // Load caches (blocking)
+    await UserCache.init();
+    await DataCache.init();
+    console.log("✅ Caches loaded");
 
-// 🔄 Retry Cache Loading (called automatically)
-async function retryCacheLoad() {
-    if (DataCache.isLoaded) {
-        console.log("✅ Cache already loaded, skipping retry");
-        return;
-    }
-
-    console.log("🔄 Retrying cache load...");
-    try {
-        await UserCache.init();
-        await DataCache.init();
-        console.log("✅ Cache loaded successfully on retry!");
-    } catch (err) {
-        console.warn("⚠️ Cache retry failed:", err.message);
-        // Schedule another retry in 30 seconds
-        console.log("🔄 Next cache retry in 30 seconds...");
-        setTimeout(async () => {
-            await retryCacheLoad();
-        }, 30000);
+    // Ensure admin user
+    const result = await db.query('SELECT * FROM users WHERE username = $1', [SEED_USER.username]);
+    if (result.rows.length === 0) {
+        await db.query('INSERT INTO users (username, password) VALUES ($1, $2)', [SEED_USER.username, SEED_USER.password]);
     }
 }
 
 async function startServer() {
     const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 10000 : 3100);
 
-    // 1. Start server IMMEDIATELY (non-blocking)
-    app.listen(PORT, () => {
-        console.log(`🚀 ERP System Server running on port ${PORT}`);
-        console.log('✅ Server is accepting requests');
+    // Initialize database FIRST (blocking)
+    await initializeDatabase();
 
-        // 2. Initialize database in background (after server starts)
-        setTimeout(() => {
-            initializeDatabase();
-        }, 2000); // Give server 2s to stabilize
+    // Then start server
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log('✅ Everything ready!');
     });
 }
 
