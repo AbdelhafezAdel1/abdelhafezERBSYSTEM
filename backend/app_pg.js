@@ -629,17 +629,44 @@ app.use((req, res, next) => {
 async function initializeDatabase() {
     console.log("🔌 Connecting to database...");
 
+    // Special handling for Supabase Free Tier: Database may be paused
+    // We retry a few times during STARTUP ONLY to give it time to wake up
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+        try {
+            attempts++;
+
+            // Try to connect with 10s timeout per attempt
+            await Promise.race([
+                db.query("SELECT 1"),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Database connection timeout (10s)')), 10000)
+                )
+            ]);
+
+            console.log("✅ Database connected successfully");
+            break; // Success - exit retry loop
+
+        } catch (err) {
+            if (attempts < maxAttempts) {
+                console.log(`⚠️ Database connection attempt ${attempts}/${maxAttempts} failed: ${err.message}`);
+                console.log(`   Retrying in 5 seconds... (Supabase may be waking up)`);
+                await new Promise(r => setTimeout(r, 5000)); // Wait 5s before retry
+            } else {
+                // Final attempt failed
+                console.error("❌ Database initialization failed after", maxAttempts, "attempts:", err.message);
+                console.error("   Please check:");
+                console.error("   1. DATABASE_URL is correct");
+                console.error("   2. Supabase database is not paused (check Supabase dashboard)");
+                console.error("   3. Network connectivity to Supabase");
+                throw err;
+            }
+        }
+    }
+
     try {
-        // Single connection attempt with timeout
-        await Promise.race([
-            db.query("SELECT 1"),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Database connection timeout (10s)')), 10000)
-            )
-        ]);
-
-        console.log("✅ Database connected successfully");
-
         // Load caches
         console.log("📦 Loading caches...");
         await UserCache.init();
@@ -656,9 +683,8 @@ async function initializeDatabase() {
         return true;
 
     } catch (err) {
-        console.error("❌ Database initialization failed:", err.message);
-        console.error("   Please check your DATABASE_URL and ensure Supabase is accessible");
-        throw err; // Re-throw to fail the startup
+        console.error("❌ Cache/Admin initialization failed:", err.message);
+        throw err;
     }
 }
 
