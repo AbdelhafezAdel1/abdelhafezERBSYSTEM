@@ -1115,23 +1115,8 @@ async function viewInvoice(id) {
                                 </div>
                             </div>
 
-                            <!-- Bank Details -->
-                            <div class="mt-3 border-t-2 border-gray-200 pt-1.5">
-                                <!-- Al Inma Bank -->
-                                <div class="flex flex-col justify-center items-center text-xs text-gray-800 bg-green-50 py-0.5 rounded border border-green-200">
-                                    <div class="font-bold flex items-center gap-1 mb-0.5 text-xs">
-                                        <i class="fas fa-university text-green-600 text-[10px]"></i>
-                                        <span>بنك الإنماء</span>
-                                    </div>
-                                    <div class="w-full px-1.5 flex justify-between items-center border-b border-gray-200 pb-0.5 mb-0.5">
-                                        <span class="text-[9px] text-gray-500 uppercase font-bold">Account</span>
-                                        <span class="font-mono font-bold text-[11px] text-green-900">68207038853000</span>
-                                    </div>
-                                    <div class="w-full px-1.5 flex justify-between items-center">
-                                        <span class="text-[9px] text-gray-500 uppercase font-bold">IBAN</span>
-                                        <span class="font-mono font-bold text-[10px] text-green-900">SA2305000068207038853000</span>
-                                    </div>
-                                </div>
+                            <!-- Bank Details Removed -->
+                            <div class="mt-3 border-t-2 border-gray-200 pt-1.5 hidden">
                             </div>
                         </div>
 
