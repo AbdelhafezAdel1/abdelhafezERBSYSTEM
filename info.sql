@@ -251,6 +251,6 @@ INSERT INTO bonds (id, company_id, type, amount, date, notes) VALUES (3, 6, 'rec
 SELECT setval('bonds_id_seq', 3);
 
 -- Data for settings
-INSERT INTO settings (id, company_name_ar, company_name_en, vat_number, bank_account, address, phone, email, logo_path, stamp_path) VALUES (1, 'مؤسسة عيسي يوسف العامر للتخليص الجمركي', 'ESSA YOUSEF ALAMIR Establishment for Customs Clearance', '', '74800000268401', 'الخبر -اللملكة العربية السعودية', '966531055420+', '', '', '') ON CONFLICT (id) DO NOTHING;
+INSERT INTO settings (id, company_name_ar, company_name_en, vat_number, bank_account, address, phone, email, logo_path, stamp_path) VALUES (1, 'مؤسسة عيسي يوسف العامر للتخليص الجمركي', 'ESSA YOUSEF ALAMIR Establishment for Customs Clearance', '', '', 'الخبر -اللملكة العربية السعودية', '966531055420+', '', '', '') ON CONFLICT (id) DO NOTHING;
 
 COMMIT;
