@@ -968,26 +968,36 @@ async function viewInvoice(id) {
                             padding: 0 !important; 
                             margin: 0 !important;
                             height: auto !important; 
-                            min-height: auto !important;
+                            width: 210mm !important;
                             display: block !important; 
                             background: white !important;
                         }
                         .invoice-box { 
                             width: 210mm !important; 
-                            height: auto !important; 
-                            min-height: 297mm !important;
+                            height: 297mm !important; 
+                            max-height: 297mm !important;
                             transform: none !important; 
                             box-shadow: none !important;
                             margin: 0 !important;
+                            padding: 0 !important;
                             border-radius: 0 !important;
-                            overflow: visible !important;
+                            overflow: hidden !important;
                             page-break-after: avoid;
                         }
                         #qrcode { display: block !important; }
                     }
+                    /* Preview styling */
+                    .invoice-preview-scaling {
+                         transform: scale(0.7); 
+                         transform-origin: top center;
+                         margin-bottom: -150px;
+                    }
+                    @media (min-width: 1536px) {
+                        .invoice-preview-scaling { transform: scale(0.85); margin-bottom: -50px; }
+                    }
                 </style>
                 <div class="print-container" style="display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; min-width: 100%; padding: 20px; background-color: #f3f4f6;">
-                    <div class="invoice-box relative bg-white shadow-lg overflow-visible" style="width: 210mm; min-height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; color: #000; margin-bottom: 20px;">
+                    <div class="invoice-box relative bg-white shadow-xl overflow-hidden invoice-preview-scaling" style="width: 210mm; height: 297mm; direction: rtl; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #000; box-sizing: border-box;">
                         
                         <!-- Background Image -->
                         <div class="absolute inset-0 z-0">
@@ -995,72 +1005,69 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Content Overlay -->
-                        <div class="relative z-10 px-10 flex flex-col min-h-[297mm]" style="padding-top: 170px; padding-bottom: 120px;">
+                        <div class="relative z-10 px-10 flex flex-col h-full" style="padding-top: 145px; padding-bottom: 90px; box-sizing: border-box;">
                         
                         <!-- Header Section: Invoice Title & Meta -->
-                        <div class="flex justify-between items-start mb-6">
+                        <div class="flex justify-between items-start mb-4">
                             <div class="text-right">
-                                <h1 class="text-3xl font-bold text-gray-900 mb-1">${settings.company_name_ar || 'فاتورة ضريبية'}</h1>
-                                <p class="text-lg text-gray-600 font-semibold tracking-wide">${settings.company_name_en || 'Tax Invoice'}</p>
-                                <div class="mt-2 text-sm text-gray-700">
-                                    <p>الرقم الضريبي: ${settings.vat_number || '-'}</p>
-                                    <p>العنوان: ${settings.address || '-'}</p>
+                                <h1 class="text-2xl font-bold text-gray-900 mb-0.5">${settings.company_name_ar || 'مؤسسة عبدالحفيظ عادل'}</h1>
+                                <p class="text-sm text-gray-600 font-semibold tracking-wide">${settings.company_name_en || 'Abdelhafiz Adel Est.'}</p>
+                                <div class="mt-1 text-[11px] text-gray-700 leading-tight">
+                                    <p>الرقم الضريبي: ${settings.vat_number || '300000000000003'}</p>
+                                    <p>العنوان: ${settings.address || 'جدة'}</p>
                                 </div>
                             </div>
-                            <div class="text-center pt-2">
+                            <div class="text-center pt-1">
                                 ${invoice.qr_code ? `<div id="qrcode" class="p-1 bg-white border border-gray-200"></div>` : ''}
+                                <div class="text-[10px] font-bold text-blue-900 mt-1">#${invoice.id}</div>
                             </div>
                             <div class="text-left">
-                                <div class="mb-2">
-                                    <span class="block text-gray-500 text-xs uppercase font-bold">Invoice Number</span>
-                                    <span class="block font-bold text-2xl text-blue-900 font-mono">#${invoice.id}</span>
+                                <div class="mb-1 text-left">
+                                    <span class="block text-gray-500 text-[10px] uppercase font-bold">Tax Invoice</span>
+                                    <span class="block font-extrabold text-xl text-blue-900">فاتورة ضريبية</span>
                                 </div>
-                                <div>
-                                    <span class="block text-gray-500 text-xs uppercase font-bold">Date</span>
-                                    <span class="block font-bold text-lg text-gray-800">${invoice.date}</span>
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="block text-gray-500 text-[9px] uppercase font-bold">Date / التاريخ</span>
+                                    <span class="block font-bold text-sm text-gray-800">${invoice.date}</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Customer & Invoice Details Box -->
-                        <div class="border-2 border-gray-800 rounded-lg mb-6 bg-white/80">
+                        <div class="border-2 border-gray-800 rounded-lg mb-4 bg-white/90">
                             <div class="grid grid-cols-2 divide-x divide-x-reverse divide-gray-800">
                                 <!-- Customer Info -->
-                                <div class="p-4">
-                                    <h3 class="font-bold text-gray-900 border-b-2 border-gray-800 pb-2 mb-3 flex justify-between items-center bg-gray-100 p-2 rounded text-base">
+                                <div class="p-3">
+                                    <h3 class="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
                                         <span>بيانات العميل</span>
-                                        <span class="text-xs text-gray-600 uppercase">Customer Details</span>
+                                        <span class="text-[10px] text-gray-600 uppercase">Customer Details</span>
                                     </h3>
-                                    <div class="space-y-3 text-base">
+                                    <div class="space-y-1.5 text-sm">
                                         <div class="flex flex-col">
-                                            <span class="text-gray-600 text-xs font-bold mb-1">الاسم / Name :</span>
-                                            <span class="font-bold text-lg text-gray-900 underline decoration-2 decoration-blue-200 underline-offset-4">${invoice.company_name || 'اسم غير متوفر'}</span>
+                                            <span class="text-gray-600 text-[10px] font-bold">الاسم / Name :</span>
+                                            <span class="font-bold text-base text-blue-900">${invoice.company_name || 'اسم غير متوفر'}</span>
                                         </div>
-                                        <div class="grid grid-cols-[100px_1fr] items-center">
-                                            <span class="text-gray-700 font-bold">رقم الضريبة :</span>
-                                            <span class="font-mono font-bold text-base bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200" dir="ltr">${invoice.vat_number || '-'}</span>
-                                        </div>
-                                        <div class="grid grid-cols-[100px_1fr] items-start">
-                                            <span class="text-gray-700 font-bold">العنوان :</span>
-                                            <span class="leading-snug text-sm font-medium">${invoice.address || '-'}</span>
+                                        <div class="grid grid-cols-[80px_1fr] items-center">
+                                            <span class="text-gray-700 font-bold text-xs">الرقم الضريبي :</span>
+                                            <span class="font-mono font-bold text-sm bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-200" dir="ltr">${invoice.vat_number || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Transaction Info -->
-                                <div class="p-4">
-                                    <h3 class="font-bold text-gray-900 border-b-2 border-gray-800 pb-2 mb-3 flex justify-between items-center bg-gray-100 p-2 rounded text-base">
+                                <div class="p-3">
+                                    <h3 class="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
                                         <span>تفاصيل الفاتورة</span>
-                                        <span class="text-xs text-gray-600 uppercase">Invoice Details</span>
+                                        <span class="text-[10px] text-gray-600 uppercase">Invoice Details</span>
                                     </h3>
-                                    <div class="space-y-4 text-base">
-                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-2">
+                                    <div class="space-y-2 text-xs">
+                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-1">
                                             <span class="text-gray-700 font-bold">نوع الشحنة / Type</span>
-                                            <span class="font-bold text-gray-900 bg-blue-50 px-3 py-1 rounded text-sm">${invoice.shipment_type || '-'}</span>
+                                            <span class="font-bold text-gray-900 bg-blue-50 px-2 py-0.5 rounded">${invoice.shipment_type || '-'}</span>
                                         </div>
-                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-2">
+                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-1">
                                             <span class="text-gray-700 font-bold">المنفذ / Customs Office</span>
-                                            <span class="font-bold text-gray-900 text-sm">${invoice.customs_office || '-'}</span>
+                                            <span class="font-bold text-gray-900">${invoice.customs_office || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1068,29 +1075,29 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- ZATCA Standard Table -->
-                        <div class="flex-grow">
+                        <div class="flex-grow overflow-hidden">
                             <table class="w-full border-2 border-gray-800 ${tableFontSize} bg-white">
                                 <thead>
                                     <tr class="bg-gray-800 text-white">
                                         <th class="border border-gray-600 ${cellPadding} w-[5%] text-center">#</th>
-                                        <th class="border border-gray-600 ${cellPadding} w-[35%] text-right font-bold ${headerFontSize}">السلع والخدمات <br><span class="text-[10px] font-normal text-gray-300">Description</span></th>
-                                        <th class="border border-gray-600 ${cellPadding} w-[10%] text-center font-bold">الكمية <br><span class="text-[10px] font-normal text-gray-300">Qty</span></th>
-                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold">سعر الوحدة <br><span class="text-[10px] font-normal text-gray-300">Unit Price</span></th>
-                                        <th class="border border-gray-600 ${cellPadding} w-[13%] text-center font-bold">المجموع <br><span class="text-[10px] font-normal text-gray-300">Subtotal</span></th>
-                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold">الضريبة <br><span class="text-[10px] font-normal text-gray-300">VAT (15%)</span></th>
-                                        <th class="border border-gray-600 ${cellPadding} w-[13%] text-center font-bold">الإجمالي <br><span class="text-[10px] font-normal text-gray-300">Total</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[40%] text-right font-bold ${headerFontSize}">السلع والخدمات <br><span class="text-[9px] font-normal text-gray-300">Description</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[8%] text-center font-bold">الكمية <br><span class="text-[9px] font-normal text-gray-300">Qty</span></th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold font-mono text-[10px]">سعر الوحدة <br> Unit Price</th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold font-mono text-[10px]">المجموع <br> Subtotal</th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[12%] text-center font-bold font-mono text-[10px]">الضريبة <br> VAT (15%)</th>
+                                        <th class="border border-gray-600 ${cellPadding} w-[13%] text-center font-bold font-mono text-[10px]">الإجمالي <br> Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${invoice.items.map((item, i) => `
-                                    <tr class="border-b border-gray-300 even:bg-gray-50">
-                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono text-gray-600 text-xs">${i + 1}</td>
-                                        <td class="border-x border-gray-300 ${cellPadding} font-bold text-gray-900">${item.description}</td>
-                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono font-bold">${item.quantity}</td>
-                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono">${formatCurrency(item.unit_price).replace(' ريال', '')}</td>
-                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono">${formatCurrency(item.line_total).replace(' ريال', '')}</td>
-                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono">${item.taxable ? formatCurrency(item.line_total * 0.15).replace(' ريال', '') : '0.00'}</td>
-                                        <td class="border-x border-gray-300 ${cellPadding} text-center font-mono font-bold text-gray-900">${formatCurrency(item.line_total + (item.taxable ? item.line_total * 0.15 : 0)).replace(' ريال', '')}</td>
+                                    <tr class="border-b border-gray-300 even:bg-gray-50 h-[32px]">
+                                        <td class="border-x border-gray-300 p-1 text-center font-mono text-gray-600 text-[10px]">${i + 1}</td>
+                                        <td class="border-x border-gray-300 p-1 font-bold text-gray-900 text-xs">${item.description}</td>
+                                        <td class="border-x border-gray-300 p-1 text-center font-mono font-bold text-xs">${item.quantity}</td>
+                                        <td class="border-x border-gray-300 p-1 text-center font-mono text-xs">${formatCurrency(item.unit_price).replace(' ريال', '')}</td>
+                                        <td class="border-x border-gray-300 p-1 text-center font-mono text-xs">${formatCurrency(item.line_total).replace(' ريال', '')}</td>
+                                        <td class="border-x border-gray-300 p-1 text-center font-mono text-xs text-red-500">${item.taxable ? formatCurrency(item.line_total * 0.15).replace(' ريال', '') : '0.00'}</td>
+                                        <td class="border-x border-gray-300 p-1 text-center font-mono font-bold text-gray-900 text-sm bg-blue-50/30">${formatCurrency(item.line_total + (item.taxable ? item.line_total * 0.15 : 0)).replace(' ريال', '')}</td>
                                     </tr>
                                     `).join('')}
                                 </tbody>
@@ -1098,70 +1105,64 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Footer Section: Totals & Bank -->
-                        <div class="mt-6">
+                        <div class="mt-4">
                             <div class="flex gap-4 items-start">
                                 <!-- Notes & Terms -->
                                 <div class="w-1/2 pt-1">
                                      ${invoice.notes ? `
-                                        <div class="bg-yellow-50 border-2 border-yellow-200 rounded p-3">
-                                            <span class="block font-bold text-gray-800 mb-1 border-b border-yellow-200 pb-1 text-sm">ملاحظات / Notes</span>
-                                            <p class="text-gray-800 whitespace-pre-wrap leading-snug font-medium text-xs">${invoice.notes}</p>
+                                        <div class="bg-yellow-50/50 border-2 border-yellow-200 rounded p-2">
+                                            <span class="block font-bold text-gray-800 mb-0.5 border-b border-yellow-200 pb-0.5 text-[10px]">ملاحظات / Notes</span>
+                                            <p class="text-gray-800 whitespace-pre-wrap leading-tight font-medium text-[10px] overflow-hidden" style="max-height: 80px;">${invoice.notes}</p>
                                         </div>
                                     ` : ''}
                                 </div>
                                 
                                 <!-- Totals Box -->
                                 <div class="w-1/2">
-                                    <table class="w-full text-base font-bold border-collapse border-2 border-gray-800 bg-white">
-                                        <tr>
-                                            <td class="p-2 border border-gray-400 bg-gray-50 text-gray-800 text-xs">الإجمالي (غير شامل الضريبة) <br> <span class="font-normal text-[10px] text-gray-600 uppercase">Total (Excl. VAT)</span></td>
-                                            <td class="p-2 border border-gray-400 text-left font-mono text-base">${formatCurrency(invoice.total_before_tax)}</td>
+                                    <table class="w-full text-sm font-bold border-collapse border-2 border-gray-800 bg-white shadow-sm">
+                                        <tr class="h-[30px]">
+                                            <td class="p-1 px-2 border border-gray-300 bg-gray-50 text-gray-800 text-[10px]">الإجمالي (غير شامل) <span class="text-[8px] font-normal uppercase">Total Excl. VAT</span></td>
+                                            <td class="p-1 px-2 border border-gray-300 text-left font-mono text-sm">${formatCurrency(invoice.total_before_tax)}</td>
                                         </tr>
-                                        <tr>
-                                            <td class="p-2 border border-gray-400 bg-gray-50 text-gray-800 text-xs">مجموع الضريبة (15%) <br> <span class="font-normal text-[10px] text-gray-600 uppercase">Total VAT (15%)</span></td>
-                                            <td class="p-2 border border-gray-400 text-left font-mono text-base text-red-600">${formatCurrency(invoice.vat_amount)}</td>
+                                        <tr class="h-[30px]">
+                                            <td class="p-1 px-2 border border-gray-300 bg-gray-50 text-gray-800 text-[10px]">ضريبة القيمة المضافة <span class="text-[8px] font-normal uppercase">Total VAT (15%)</span></td>
+                                            <td class="p-1 px-2 border border-gray-300 text-left font-mono text-sm text-red-600">${formatCurrency(invoice.vat_amount)}</td>
                                         </tr>
-                                        <tr class="bg-gray-800 text-white">
-                                            <td class="p-3 border border-gray-800 text-sm">الإجمالي المستحق <br> <span class="font-normal text-[11px] text-gray-300 uppercase">Total Amount Due</span></td>
-                                            <td class="p-3 border border-gray-800 text-left font-mono text-2xl font-bold">${formatCurrency(invoice.total_after_tax)}</td>
+                                        <tr class="bg-gray-800 text-white h-[40px]">
+                                            <td class="p-1 px-3 border border-gray-800 text-xs">الإجمالي المستحق <br> <span class="font-normal text-[9px] text-gray-300 uppercase">Total Amount Due</span></td>
+                                            <td class="p-1 px-3 border border-gray-800 text-left font-mono text-xl font-extrabold" style="color: #4ade80;">${formatCurrency(invoice.total_after_tax)}</td>
                                         </tr>
                                     </table>
                                 </div>
                             </div>
 
                             <!-- Bank Details -->
-                             <div class="mt-6 border-t-2 border-gray-800 pt-4">
-                                 <div class="grid grid-cols-2 gap-4">
+                             <div class="mt-4 border-t-2 border-gray-800 pt-3">
+                                 <div class="grid grid-cols-2 gap-3">
                                      <!-- Bank Info -->
-                                     <div class="flex flex-col justify-center items-center text-sm text-gray-900 bg-gray-50 p-3 rounded border border-gray-300">
-                                         <div class="font-bold flex items-center gap-2 mb-2">
-                                             <i class="fas fa-university text-gray-800"></i>
-                                             <span>${settings.bank_account ? 'بيانات البنك' : 'بنك الإنماء'}</span>
+                                     <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2.5 rounded border border-gray-300">
+                                         <div class="font-bold flex items-center gap-2 mb-1.5 text-blue-900">
+                                             <i class="fas fa-university"></i>
+                                             <span>مصرف الإنماء / Alinma Bank</span>
                                          </div>
-                                         ${settings.bank_account ? `
-                                            <div class="text-center font-bold text-gray-800 leading-relaxed">
-                                                ${settings.bank_account}
-                                            </div>
-                                         ` : `
-                                             <div class="w-full px-2 flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
-                                                 <span class="text-[10px] text-gray-500 uppercase font-bold">Account</span>
-                                                 <span class="font-mono font-bold text-sm text-gray-900">68207038853000</span>
-                                             </div>
-                                             <div class="w-full px-2 flex justify-between items-center">
-                                                 <span class="text-[10px] text-gray-500 uppercase font-bold">IBAN</span>
-                                                 <span class="font-mono font-bold text-xs text-gray-900">SA2305000068207038853000</span>
-                                             </div>
-                                         `}
+                                         <div class="w-full px-2 flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
+                                             <span class="text-[8px] text-gray-500 uppercase font-bold">Account / الحساب</span>
+                                             <span class="font-mono font-bold text-[11px] text-gray-900">68207038853000</span>
+                                         </div>
+                                         <div class="w-full px-2 flex justify-between items-center">
+                                             <span class="text-[8px] text-gray-500 uppercase font-bold">IBAN / الآيبان</span>
+                                             <span class="font-mono font-bold text-[10px] text-gray-900 tracking-tighter">SA2305000068207038853000</span>
+                                         </div>
                                      </div>
                                      <!-- Contact Info -->
-                                     <div class="flex flex-col justify-center items-center text-sm text-gray-900 bg-gray-50 p-3 rounded border border-gray-300">
-                                         <div class="font-bold flex items-center gap-2 mb-2">
-                                             <i class="fas fa-phone-alt text-gray-800"></i>
-                                             <span>للتواصل والحصول على المزيد</span>
+                                     <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2.5 rounded border border-gray-300">
+                                         <div class="font-bold flex items-center gap-2 mb-1.5 text-blue-900">
+                                             <i class="fas fa-headset"></i>
+                                             <span>للتواصل والاستفسار / Contact Information</span>
                                          </div>
-                                         <div class="text-center font-bold text-gray-800">
-                                             ${settings.phone || '-'}<br>
-                                             ${settings.email || ''}
+                                         <div class="text-center">
+                                             <span class="block font-bold text-gray-900 text-sm tracking-widest" dir="ltr">0126425999</span>
+                                             <span class="block text-[10px] font-bold text-blue-600 mt-0.5">${settings.email || 'ALDHAWI@ABRALHDUD.COM'}</span>
                                          </div>
                                      </div>
                                  </div>
