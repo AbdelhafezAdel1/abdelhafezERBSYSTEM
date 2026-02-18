@@ -1009,26 +1009,32 @@ async function viewInvoice(id) {
                         
                         <!-- Header Section: Invoice Title & Meta -->
                         <div class="flex justify-between items-start mb-4">
-                            <div class="text-right">
+                            <!-- Right: Company Info -->
+                            <div class="w-1/3 text-right">
                                 <h1 class="text-2xl font-bold text-gray-900 mb-0.5">${settings.company_name_ar || 'مؤسسة عبدالحفيظ عادل'}</h1>
-                                <p class="text-sm text-gray-600 font-semibold tracking-wide">${settings.company_name_en || 'Abdelhafiz Adel Est.'}</p>
+                                <p class="text-[11px] text-gray-600 font-semibold tracking-wide">${settings.company_name_en || 'Abdelhafiz Adel Est.'}</p>
                                 <div class="mt-1 text-[11px] text-gray-700 leading-tight">
-                                    <p>الرقم الضريبي: ${settings.vat_number || '300000000000003'}</p>
                                     <p>العنوان: ${settings.address || 'جدة'}</p>
                                 </div>
                             </div>
-                            <div class="text-center pt-1">
-                                ${invoice.qr_code ? `<div id="qrcode" class="p-1 bg-white border border-gray-200"></div>` : ''}
-                                <div class="text-[10px] font-bold text-blue-900 mt-1">#${invoice.id}</div>
+
+                            <!-- Center: Barcode (QR Code) -->
+                            <div class="w-1/3 flex justify-center pt-1">
+                                ${invoice.qr_code ? `<div id="qrcode" class="p-1 bg-white border border-gray-200 shadow-sm"></div>` : ''}
                             </div>
-                            <div class="text-left">
-                                <div class="mb-1 text-left">
-                                    <span class="block text-gray-500 text-[10px] uppercase font-bold">Tax Invoice</span>
-                                    <span class="block font-extrabold text-xl text-blue-900">فاتورة ضريبية</span>
+
+                            <!-- Left: Invoice Meta -->
+                            <div class="w-1/3 text-left">
+                                <div class="mb-2">
+                                    <span class="text-blue-900 font-mono font-extrabold text-xl">#${invoice.id}</span>
                                 </div>
-                                <div class="text-right flex flex-col items-end">
-                                    <span class="block text-gray-500 text-[9px] uppercase font-bold">Date / التاريخ</span>
-                                    <span class="block font-bold text-sm text-gray-800">${invoice.date}</span>
+                                <div class="mb-1">
+                                    <span class="block text-gray-500 text-[10px] uppercase font-bold">Tax Invoice</span>
+                                    <span class="block font-extrabold text-2xl text-blue-900 leading-none">فاتورة ضريبية</span>
+                                </div>
+                                <div class="mt-2 flex flex-col items-start">
+                                    <span class="text-gray-500 text-[9px] uppercase font-bold">Date / التاريخ</span>
+                                    <span class="font-bold text-sm text-gray-800">${invoice.date}</span>
                                 </div>
                             </div>
                         </div>
@@ -1138,31 +1144,22 @@ async function viewInvoice(id) {
 
                             <!-- Bank Details -->
                              <div class="mt-4 border-t-2 border-gray-800 pt-3">
-                                 <div class="grid grid-cols-2 gap-3">
+                                 <div class="grid grid-cols-1">
                                      <!-- Bank Info -->
                                      <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2.5 rounded border border-gray-300">
                                          <div class="font-bold flex items-center gap-2 mb-1.5 text-blue-900">
                                              <i class="fas fa-university"></i>
                                              <span>مصرف الإنماء / Alinma Bank</span>
                                          </div>
-                                         <div class="w-full px-2 flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
-                                             <span class="text-[8px] text-gray-500 uppercase font-bold">Account / الحساب</span>
-                                             <span class="font-mono font-bold text-[11px] text-gray-900">68207038853000</span>
-                                         </div>
-                                         <div class="w-full px-2 flex justify-between items-center">
-                                             <span class="text-[8px] text-gray-500 uppercase font-bold">IBAN / الآيبان</span>
-                                             <span class="font-mono font-bold text-[10px] text-gray-900 tracking-tighter">SA2305000068207038853000</span>
-                                         </div>
-                                     </div>
-                                     <!-- Contact Info -->
-                                     <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2.5 rounded border border-gray-300">
-                                         <div class="font-bold flex items-center gap-2 mb-1.5 text-blue-900">
-                                             <i class="fas fa-headset"></i>
-                                             <span>للتواصل والاستفسار / Contact Information</span>
-                                         </div>
-                                         <div class="text-center">
-                                             <span class="block font-bold text-gray-900 text-sm tracking-widest" dir="ltr">0126425999</span>
-                                             <span class="block text-[10px] font-bold text-blue-600 mt-0.5">${settings.email || 'ALDHAWI@ABRALHDUD.COM'}</span>
+                                         <div class="flex gap-8 w-full justify-center">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-[8px] text-gray-500 uppercase font-bold">Account / الحساب :</span>
+                                                <span class="font-mono font-bold text-[13px] text-gray-900">68207038853000</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-[8px] text-gray-500 uppercase font-bold">IBAN / الآيبان :</span>
+                                                <span class="font-mono font-bold text-[12px] text-gray-900">SA2305000068207038853000</span>
+                                            </div>
                                          </div>
                                      </div>
                                  </div>
