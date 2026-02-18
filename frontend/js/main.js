@@ -1018,7 +1018,7 @@ async function viewInvoice(id) {
                                         <span class="text-xs text-gray-500 uppercase">Customer Details</span>
                                     </h3>
                                     <div class="space-y-2 text-sm">
-                                        <div class="grid grid-cols-[85px_1fr] items-center">
+                                        <div class="grid grid-cols-[100px_1fr] items-center">
                                             <span class="text-gray-700 font-semibold">الاسم :</span>
                                             <span class="font-bold text-sm">${invoice.company_name || 'اسم غير متوفر'}</span>
                                         </div>
