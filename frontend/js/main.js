@@ -1020,7 +1020,7 @@ async function viewInvoice(id) {
                                     <div class="space-y-2 text-sm">
                                         <div class="grid grid-cols-[85px_1fr] items-center">
                                             <span class="text-gray-700 font-semibold">الاسم :</span>
-                                            <span class="font-bold text-sm truncate">${invoice.company_name}</span>
+                                            <span class="font-bold text-sm">${invoice.company_name || 'اسم غير متوفر'}</span>
                                         </div>
                                         <div class="grid grid-cols-[85px_1fr] items-center">
                                             <span class="text-gray-700 font-semibold">رقم الضريبة :</span>
