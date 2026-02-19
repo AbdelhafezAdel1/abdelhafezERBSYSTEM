@@ -1109,8 +1109,8 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Footer Section: Totals & Bank -->
-                        <div class="mt-[-50px]">
-                            <div class="flex gap-[21px] items-start">
+                        <div class="mt-[-120px] relative z-20">
+                            <div class="flex gap-[32px] items-start">
                                 <!-- Notes & Terms -->
                                 <div class="w-1/2 pt-1">
                                      ${invoice.notes ? `
@@ -1141,7 +1141,7 @@ async function viewInvoice(id) {
                             </div>
 
                             <!-- Bank Details -->
-                             <div class="mt-[-15px] border-t-2 border-gray-800 pt-2">
+                             <div class="mt-[-35px] border-t-2 border-gray-800 pt-1">
                                  <div class="grid grid-cols-1">
                                      <!-- Bank Info -->
                                      <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2 rounded border border-gray-300">
