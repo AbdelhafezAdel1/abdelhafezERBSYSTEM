@@ -1009,13 +1009,10 @@ async function viewInvoice(id) {
                         
                         <!-- Header Section: Invoice Title & Meta -->
                         <div class="flex justify-between items-start mb-4">
-                            <!-- Right: Company Info -->
+                            <!-- Right: Invoice Title -->
                             <div class="w-1/3 text-right">
-                                <h1 class="text-2xl font-bold text-gray-900 mb-0.5">${settings.company_name_ar || 'مؤسسة عبدالحفيظ عادل'}</h1>
-                                <p class="text-[11px] text-gray-600 font-semibold tracking-wide">${settings.company_name_en || 'Abdelhafiz Adel Est.'}</p>
-                                <div class="mt-1 text-[11px] text-gray-700 leading-tight">
-                                    <p>العنوان: ${settings.address || 'جدة'}</p>
-                                </div>
+                                <h1 class="text-2xl font-bold text-gray-900 mb-0.5">الفاتورة الضريبية</h1>
+                                <p class="text-[18px] text-gray-600 font-bold uppercase tracking-wide">tax invoice</p>
                             </div>
 
                             <!-- Center: Barcode (QR Code) -->
@@ -1025,16 +1022,13 @@ async function viewInvoice(id) {
 
                             <!-- Left: Invoice Meta -->
                             <div class="w-1/3 text-left">
-                                <div class="mb-2">
-                                    <span class="text-blue-900 font-mono font-extrabold text-xl">#${invoice.id}</span>
-                                </div>
                                 <div class="mb-1">
-                                    <span class="block text-gray-500 text-[10px] uppercase font-bold">Tax Invoice</span>
-                                    <span class="block font-extrabold text-2xl text-blue-900 leading-none">فاتورة ضريبية</span>
+                                    <span class="block text-gray-500 text-xs font-bold uppercase">رقم الفاتورة</span>
+                                    <span class="text-blue-900 font-mono font-extrabold text-2xl">#${invoice.id}</span>
                                 </div>
-                                <div class="mt-2 flex flex-col items-start">
-                                    <span class="text-gray-500 text-[9px] uppercase font-bold">Date / التاريخ</span>
-                                    <span class="font-bold text-sm text-gray-800">${invoice.date}</span>
+                                <div class="mt-2">
+                                    <span class="block text-gray-500 text-xs font-bold uppercase">التاريخ</span>
+                                    <span class="font-bold text-lg text-gray-800">${invoice.date}</span>
                                 </div>
                             </div>
                         </div>
@@ -1044,35 +1038,39 @@ async function viewInvoice(id) {
                             <div class="grid grid-cols-2 divide-x divide-x-reverse divide-gray-800">
                                 <!-- Customer Info -->
                                 <div class="p-3">
-                                    <h3 class="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
+                                    <h3 class="font-bold text-gray-900 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
                                         <span>بيانات العميل</span>
-                                        <span class="text-[10px] text-gray-600 uppercase">Customer Details</span>
+                                        <span class="text-[10px] text-gray-600 uppercase font-bold">Customer Details</span>
                                     </h3>
                                     <div class="space-y-1.5 text-sm">
                                         <div class="flex flex-col">
-                                            <span class="text-gray-600 text-[10px] font-bold">الاسم / Name :</span>
+                                            <span class="text-gray-600 text-[10px] font-bold uppercase">اسم المعمل :</span>
                                             <span class="font-bold text-base text-blue-900">${invoice.company_name || 'اسم غير متوفر'}</span>
                                         </div>
-                                        <div class="grid grid-cols-[80px_1fr] items-center">
-                                            <span class="text-gray-700 font-bold text-xs">الرقم الضريبي :</span>
-                                            <span class="font-mono font-bold text-sm bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-200" dir="ltr">${invoice.vat_number || '-'}</span>
+                                        <div class="flex flex-col">
+                                            <span class="text-gray-700 font-bold text-[10px] uppercase">الرقم الضريبي :</span>
+                                            <span class="font-mono font-bold text-sm" dir="ltr">${invoice.vat_number || '-'}</span>
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="text-gray-700 font-bold text-[10px] uppercase">العنوان :</span>
+                                            <span class="font-bold text-sm text-gray-800">${invoice.address || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Transaction Info -->
                                 <div class="p-3">
-                                    <h3 class="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
+                                    <h3 class="font-bold text-gray-900 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
                                         <span>تفاصيل الفاتورة</span>
-                                        <span class="text-[10px] text-gray-600 uppercase">Invoice Details</span>
+                                        <span class="text-[10px] text-gray-600 uppercase font-bold">Invoice Details</span>
                                     </h3>
                                     <div class="space-y-2 text-xs">
                                         <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-1">
-                                            <span class="text-gray-700 font-bold">نوع الشحنة / Type</span>
+                                            <span class="text-gray-700 font-bold uppercase">نوع الشحنة</span>
                                             <span class="font-bold text-gray-900 bg-blue-50 px-2 py-0.5 rounded">${invoice.shipment_type || '-'}</span>
                                         </div>
                                         <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-1">
-                                            <span class="text-gray-700 font-bold">المنفذ / Customs Office</span>
+                                            <span class="text-gray-700 font-bold uppercase">المنفذ</span>
                                             <span class="font-bold text-gray-900">${invoice.customs_office || '-'}</span>
                                         </div>
                                     </div>
