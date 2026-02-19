@@ -1109,7 +1109,7 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Footer Section: Totals & Bank -->
-                        <div class="mt-[-120px] relative z-20">
+                        <div class="mt-[-200px] relative z-20">
                             <div class="flex gap-[32px] items-start">
                                 <!-- Notes & Terms -->
                                 <div class="w-1/2 pt-1">
