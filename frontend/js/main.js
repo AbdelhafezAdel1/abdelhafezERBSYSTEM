@@ -1034,44 +1034,44 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Customer & Invoice Details Box -->
-                        <div class="border-2 border-gray-800 rounded-lg mb-4 bg-white/90">
+                        <div class="border-2 border-gray-800 rounded-lg mb-2 bg-white/90">
                             <div class="grid grid-cols-2 divide-x divide-x-reverse divide-gray-800">
                                 <!-- Customer Info -->
-                                <div class="p-3">
-                                    <h3 class="font-bold text-gray-900 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
+                                <div class="p-2">
+                                    <h3 class="font-bold text-gray-900 mb-1.5 flex justify-between items-center bg-gray-100 px-2 py-0.5 rounded text-[11px]">
                                         <span>بيانات العميل</span>
-                                        <span class="text-[10px] text-gray-600 uppercase font-bold">Customer Details</span>
+                                        <span class="text-[9px] text-gray-600 uppercase font-bold">Customer Details</span>
                                     </h3>
-                                    <div class="space-y-1.5 text-sm">
-                                        <div class="flex flex-col">
-                                            <span class="text-gray-600 text-[10px] font-bold uppercase">اسم المعمل :</span>
-                                            <span class="font-bold text-base text-blue-900">${invoice.company_name || 'اسم غير متوفر'}</span>
+                                    <div class="space-y-1 text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-gray-600 text-[10px] font-bold uppercase whitespace-nowrap">اسم العمل:</span>
+                                            <span class="font-bold text-sm text-blue-900 truncate">${invoice.company_name || 'اسم غير متوفر'}</span>
                                         </div>
-                                        <div class="flex flex-col">
-                                            <span class="text-gray-700 font-bold text-[10px] uppercase">الرقم الضريبي :</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-gray-700 font-bold text-[10px] uppercase whitespace-nowrap">الرقم الضريبي:</span>
                                             <span class="font-mono font-bold text-sm" dir="ltr">${invoice.vat_number || '-'}</span>
                                         </div>
-                                        <div class="flex flex-col">
-                                            <span class="text-gray-700 font-bold text-[10px] uppercase">العنوان :</span>
-                                            <span class="font-bold text-sm text-gray-800">${invoice.address || '-'}</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-gray-700 font-bold text-[10px] uppercase whitespace-nowrap">العنوان:</span>
+                                            <span class="font-bold text-xs text-gray-800 truncate">${invoice.address || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Transaction Info -->
-                                <div class="p-3">
-                                    <h3 class="font-bold text-gray-900 mb-2 flex justify-between items-center bg-gray-100 p-1 rounded text-sm">
+                                <div class="p-2">
+                                    <h3 class="font-bold text-gray-900 mb-1.5 flex justify-between items-center bg-gray-100 px-2 py-0.5 rounded text-[11px]">
                                         <span>تفاصيل الفاتورة</span>
-                                        <span class="text-[10px] text-gray-600 uppercase font-bold">Invoice Details</span>
+                                        <span class="text-[9px] text-gray-600 uppercase font-bold">Invoice Details</span>
                                     </h3>
-                                    <div class="space-y-2 text-xs">
-                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-1">
-                                            <span class="text-gray-700 font-bold uppercase">نوع الشحنة</span>
-                                            <span class="font-bold text-gray-900 bg-blue-50 px-2 py-0.5 rounded">${invoice.shipment_type || '-'}</span>
+                                    <div class="space-y-1 text-xs">
+                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-0.5">
+                                            <span class="text-gray-700 font-bold uppercase text-[10px]">نوع الشحنة</span>
+                                            <span class="font-bold text-gray-900 bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">${invoice.shipment_type || '-'}</span>
                                         </div>
-                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-1">
-                                            <span class="text-gray-700 font-bold uppercase">المنفذ</span>
-                                            <span class="font-bold text-gray-900">${invoice.customs_office || '-'}</span>
+                                        <div class="flex justify-between items-center border-b border-dashed border-gray-400 pb-0.5">
+                                            <span class="text-gray-700 font-bold uppercase text-[10px]">المنفذ</span>
+                                            <span class="font-bold text-gray-900 text-[10px]">${invoice.customs_office || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1109,7 +1109,7 @@ async function viewInvoice(id) {
                         </div>
 
                         <!-- Footer Section: Totals & Bank -->
-                        <div class="mt-4">
+                        <div class="mt-2">
                             <div class="flex gap-4 items-start">
                                 <!-- Notes & Terms -->
                                 <div class="w-1/2 pt-1">
@@ -1141,22 +1141,22 @@ async function viewInvoice(id) {
                             </div>
 
                             <!-- Bank Details -->
-                             <div class="mt-4 border-t-2 border-gray-800 pt-3">
+                             <div class="mt-[-15px] border-t-2 border-gray-800 pt-2">
                                  <div class="grid grid-cols-1">
                                      <!-- Bank Info -->
-                                     <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2.5 rounded border border-gray-300">
-                                         <div class="font-bold flex items-center gap-2 mb-1.5 text-blue-900">
+                                     <div class="flex flex-col justify-center items-center text-xs text-gray-900 bg-gray-50 p-2 rounded border border-gray-300">
+                                         <div class="font-bold flex items-center gap-2 mb-1 text-blue-900">
                                              <i class="fas fa-university"></i>
                                              <span>مصرف الإنماء / Alinma Bank</span>
                                          </div>
                                          <div class="flex gap-8 w-full justify-center">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-[8px] text-gray-500 uppercase font-bold">Account / الحساب :</span>
-                                                <span class="font-mono font-bold text-[13px] text-gray-900">68207038853000</span>
+                                                <span class="font-mono font-bold text-[12px] text-gray-900">68207038853000</span>
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <span class="text-[8px] text-gray-500 uppercase font-bold">IBAN / الآيبان :</span>
-                                                <span class="font-mono font-bold text-[12px] text-gray-900">SA2305000068207038853000</span>
+                                                <span class="font-mono font-bold text-[11px] text-gray-900">SA2305000068207038853000</span>
                                             </div>
                                          </div>
                                      </div>
