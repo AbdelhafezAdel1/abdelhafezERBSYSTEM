@@ -1,0 +1,22 @@
+{
+  "Period": "2026-04",
+  "TotalSales": 2000,
+  "TotalVATCollected": 375,
+  "TotalVATRefunds": 75,
+  "NetVATDue": 300,
+  "Breakdown": {
+    "Standard": {
+      "count": 3,
+      "taxableAmount": 2000,
+      "vatAmount": 300
+    },
+    "Zero": {
+      "count": 0,
+      "taxableAmount": 0
+    },
+    "Exempt": {
+      "count": 0,
+      "taxableAmount": 0
+    }
+  }
+}

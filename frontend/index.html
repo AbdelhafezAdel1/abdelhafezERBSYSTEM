@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 
 <head>
@@ -95,6 +95,9 @@
                 <li><a href="#" onclick="showSection('bonds')"
                         class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
                             class="fas fa-money-bill-wave ml-3 w-6"></i> السندات</a></li>
+                <li><a href="#" onclick="showSection('zatca-manual')"
+                        class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i
+                            class="fas fa-cloud-upload-alt ml-3 w-6"></i> الزكاة والضريبة</a></li>
                 <li><a href="#" onclick="showSection('profile')"
                         class="block py-3 px-6 hover:bg-gray-800 transition-colors"><i class="fas fa-cog ml-3 w-6"></i>
                         الإعدادات</a></li>
@@ -573,6 +576,42 @@
                             </tr>
                         </thead>
                         <tbody id="bond-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ZATCA Manual Upload Section -->
+            <section id="zatca-manual" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">هيئة الزكاة والضريبة والجمارك</h2>
+                </div>
+                <div class="card p-4 mb-6 flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">حالة الرفع</label>
+                        <select id="zatca-filter-status" class="w-full" onchange="loadZatcaInvoices()">
+                            <option value="">الكل</option>
+                            <option value="pending">في الانتظار / مسودة</option>
+                            <option value="REPORTED">تم الرفع بنجاح</option>
+                            <option value="FAILED">فشل الرفع</option>
+                        </select>
+                    </div>
+                    <button onclick="loadZatcaInvoices()" class="btn btn-primary h-[42px]">
+                        <i class="fas fa-sync-alt ml-2"></i> تحديث
+                    </button>
+                </div>
+                <div class="table-container bg-white">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>رقم الفاتورة</th>
+                                <th>التاريخ</th>
+                                <th>الشركة</th>
+                                <th>الإجمالي</th>
+                                <th>حالة الزكاة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zatca-invoice-list"></tbody>
                     </table>
                 </div>
             </section>

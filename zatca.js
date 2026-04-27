@@ -25,8 +25,8 @@ const path = require('path');
 
 // إعدادات الهيئة (يجب نقلها إلى متغيرات البيئة .env في الإنتاج)
 const ZATCA_CONFIG = {
-    sandboxUrl: 'https://gw-apic-gov.gazt.gov.sa/e-invoicing/developer-portal',
-    productionUrl: 'https://gw-apic-gov.gazt.gov.sa/e-invoicing/core',
+    sandboxUrl: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal',
+    productionUrl: 'https://gw-fatoora.zatca.gov.sa/e-invoicing/core',
     // ضع مسار الشهادة والمفتاح هنا
     // privateKeyPath: './certs/private-key.pem',
     // certificatePath: './certs/certificate.pem'

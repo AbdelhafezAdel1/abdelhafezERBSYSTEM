@@ -1,5 +1,36 @@
 // Main ERP Logic
 
+// --- Toast Notification ---
+function showToast(message, type = 'success', duration = 5000) {
+    const existing = document.getElementById('zatca-toast');
+    if (existing) existing.remove();
+
+    const colors = {
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        warning: 'bg-yellow-500',
+        info: 'bg-blue-600'
+    };
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-times-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+    };
+
+    const toast = document.createElement('div');
+    toast.id = 'zatca-toast';
+    toast.className = `fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[9999] ${colors[type]} text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-bold transition-all duration-300`;
+    toast.style.minWidth = '320px';
+    toast.innerHTML = `<i class="fas ${icons[type]} text-xl"></i><span>${message}</span>`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
 // --- Global State & Navigation ---
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
             y.value = now.getFullYear().toString();
         }
     };
-
     ['dash', 'invoice'].forEach(setDefaults);
 
     // Initial Load
@@ -69,6 +99,7 @@ function showSection(id) {
     if (id === 'bonds') loadBonds();
     if (id === 'create-invoice') initCreateInvoice();
     if (id === 'tax-register') loadTaxRegister();
+    if (id === 'zatca-manual') loadZatcaInvoices();
     if (id === 'profile') loadProfile();
     if (id === 'dashboard') loadDashboard();
 }
@@ -412,7 +443,27 @@ async function saveInvoice(status) {
 
         if (res.ok) {
             const result = await res.json();
-            alert(editingId ? 'تم التحديث بنجاح' : 'تم الحفظ بنجاح');
+
+            // Show ZATCA status notification
+            if (editingId) {
+                // Editing existing invoice
+                if (result.zatca_warning) {
+                    showToast('✏️ تم تحديث الفاتورة محلياً — ملاحظة: الفواتير المُرسلة للزكاة لا تُعاد إرسالها تلقائياً', 'warning', 8000);
+                } else {
+                    showToast('✅ تم تحديث الفاتورة بنجاح', 'info');
+                }
+            } else if (status === 'Final') {
+                if (result.zatca_status === 'REPORTED') {
+                    showToast('✅ تم إرسال الفاتورة لهيئة الزكاة والضريبة والجمارك بنجاح', 'success');
+                } else if (result.zatca_status === 'FAILED') {
+                    showToast('⚠️ تم حفظ الفاتورة لكن فشل إرسالها للزكاة. تأكد من الاتصال', 'warning', 8000);
+                } else {
+                    showToast('✅ تم حفظ الفاتورة بنجاح', 'info');
+                }
+            } else {
+                showToast('💾 تم حفظ المسودة بنجاح', 'info');
+            }
+
             if (status === 'Final') {
                 const idToView = editingId || result.id;
                 await viewInvoice(idToView);
@@ -908,6 +959,87 @@ document.getElementById('bond-form').addEventListener('submit', async (e) => {
     loadBonds();
 });
 
+// --- ZATCA Manual Upload ---
+async function loadZatcaInvoices() {
+    const statusFilter = document.getElementById('zatca-filter-status').value;
+    
+    // Fetch all invoices
+    const res = await fetch('/api/invoices');
+    let invoices = await res.json();
+    
+    // Filter locally based on status if selected
+    if (statusFilter) {
+        if (statusFilter === 'pending') {
+            invoices = invoices.filter(inv => !inv.zatca_status || inv.zatca_status === 'pending');
+        } else {
+            invoices = invoices.filter(inv => inv.zatca_status === statusFilter);
+        }
+    }
+    
+    const tbody = document.getElementById('zatca-invoice-list');
+    tbody.innerHTML = invoices.map(inv => {
+        const zStatus = inv.zatca_status || 'pending';
+        let statusHtml = '';
+        let actionHtml = '';
+        
+        if (zStatus === 'REPORTED' || zStatus === 'REPORTED_WITH_WARNINGS' || zStatus === 'CLEARED') {
+            statusHtml = '<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800"><i class="fas fa-check-circle ml-1"></i>تم الرفع بنجاح</span>';
+            actionHtml = '<button disabled class="btn bg-gray-300 text-gray-600 cursor-not-allowed opacity-70 text-xs px-3 py-1"><i class="fas fa-check ml-1"></i>تم الرفع</button>';
+        } else if (zStatus === 'FAILED') {
+            statusHtml = '<span class="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800"><i class="fas fa-times-circle ml-1"></i>فشل الرفع</span>';
+            actionHtml = `<button onclick="uploadToZatca(${inv.id})" class="btn bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1"><i class="fas fa-redo ml-1"></i>إعادة المحاولة</button>`;
+        } else {
+            // Pending or draft
+            statusHtml = '<span class="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800"><i class="fas fa-clock ml-1"></i>في الانتظار</span>';
+            
+            if (inv.status === 'Draft') {
+                actionHtml = '<span class="text-xs text-gray-500">مطلوب اعتماد الفاتورة</span>';
+            } else {
+                actionHtml = `<button onclick="uploadToZatca(${inv.id})" class="btn bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1 shadow-sm"><i class="fas fa-cloud-upload-alt ml-1"></i>رفع للزكاة</button>`;
+            }
+        }
+        
+        return `
+        <tr class="hover:bg-gray-50 transition-colors border-b">
+            <td><span class="font-mono font-bold text-blue-600">#${inv.id}</span></td>
+            <td>${inv.date}</td>
+            <td class="font-bold text-gray-700">${inv.company_name}</td>
+            <td class="font-bold font-mono">${formatCurrency(inv.total_after_tax)}</td>
+            <td>${statusHtml}</td>
+            <td>${actionHtml}</td>
+        </tr>
+    `}).join('');
+}
+
+async function uploadToZatca(id) {
+    if (!confirm('هل أنت متأكد من إرسال هذه الفاتورة إلى هيئة الزكاة والضريبة والجمارك؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    
+    // Show loading state on button
+    const btn = event.currentTarget;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i>جاري الرفع...';
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`/api/invoices/${id}/zatca`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast('✅ ' + data.message, 'success');
+        } else {
+            showToast('❌ ' + data.message, 'error', 8000);
+            if (data.details && data.details.errorMessages) {
+                console.error('ZATCA Errors:', data.details.errorMessages);
+            }
+        }
+    } catch (err) {
+        showToast('❌ حدث خطأ في الاتصال بالسيرفر', 'error');
+    }
+    
+    // Reload list
+    loadZatcaInvoices();
+}
+
 // --- Helper Functions ---
 function formatCurrency(val) {
     return parseFloat(val || 0).toFixed(2) + ' ريال';
@@ -1009,10 +1141,14 @@ async function viewInvoice(id) {
                         
                         <!-- Header Section: Invoice Title & Meta -->
                         <div class="flex justify-between items-start mb-4">
-                            <!-- Right: Invoice Title -->
+                            <!-- Right: Invoice Title + Our VAT -->
                             <div class="w-1/3 text-right">
                                 <h1 class="text-2xl font-bold text-gray-900 mb-0.5">الفاتورة الضريبية</h1>
                                 <p class="text-[18px] text-gray-600 font-bold uppercase tracking-wide">tax invoice</p>
+                                <div class="mt-1 bg-blue-50 border border-blue-200 rounded px-2 py-0.5 inline-block">
+                                    <span class="text-[9px] text-gray-500 font-bold block">الرقم الضريبي للمورد / Supplier VAT</span>
+                                    <span class="font-mono font-extrabold text-blue-900 text-sm" dir="ltr">310137521300003</span>
+                                </div>
                             </div>
 
                             <!-- Center: Barcode (QR Code) -->

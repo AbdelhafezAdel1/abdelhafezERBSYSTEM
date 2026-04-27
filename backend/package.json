@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node -r dotenv/config app_pg.js",
     "dev": "node app_pg.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "zatca:onboard": "node ./zatca-integration/src/tax/onboarding.js",
+    "zatca:onboard-full": "node ./zatca-integration/full_onboarding.js"
   },
   "keywords": [
     "erp",
@@ -32,6 +34,7 @@
     "sqlite3": "^5.1.7",
     "uuid": "^13.0.0",
     "winston": "^3.18.3",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "zatca-xml-js": "^0.1.9"
   }
 }

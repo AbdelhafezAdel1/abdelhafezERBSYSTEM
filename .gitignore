@@ -6,6 +6,10 @@ package-lock.json
 .env
 *.env
 
+# ZATCA Certificates (IMPORTANT: Never commit private keys)
+backend/zatca-integration/certs/
+certs/
+
 # Database files
 *.db
 database/
