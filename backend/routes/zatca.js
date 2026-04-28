@@ -144,8 +144,20 @@ function buildInvoiceXML(invoice, items) {
 </Invoice>`;
 }
 
-/** قراءة بيانات الاعتماد المخزنة */
 function getCredentials() {
+    // 1. Try reading from environment variable (For Render/Production deployments)
+    if (process.env.ZATCA_PRODUCTION_CSID) {
+        try {
+            console.log(`🔐 Loading ZATCA credentials from Environment Variable`);
+            const creds = JSON.parse(process.env.ZATCA_PRODUCTION_CSID);
+            console.log(`🔐 Credentials loaded (ENV): token=${!!creds.binarySecurityToken}, secret=${!!creds.secret}`);
+            return creds;
+        } catch (e) {
+            console.error('❌ Error parsing ZATCA_PRODUCTION_CSID from ENV:', e.message);
+        }
+    }
+
+    // 2. Fallback to reading from file (For local development)
     try {
         const prodPath = path.join(__dirname, '..', 'zatca-integration', 'certs', 'production_csid.json');
         console.log(`🔐 Loading ZATCA credentials from: ${prodPath}`);
@@ -339,16 +351,21 @@ router.post('/report', async (req, res) => {
         const creds = requireProductionCredentials(res);
         if (!creds) return;
 
+        let privateKey = process.env.ZATCA_PRIVATE_KEY;
         const privateKeyPath = path.join(__dirname, '..', 'zatca-integration', 'certs', 'private-key.pem');
-        if (!fs.existsSync(privateKeyPath)) {
-            return res.status(503).json({
-                success: false,
-                error: 'ملف المفتاح الخاص غير موجود',
-                path: privateKeyPath
-            });
+        
+        if (!privateKey) {
+            if (!fs.existsSync(privateKeyPath)) {
+                return res.status(503).json({
+                    success: false,
+                    error: 'ملف المفتاح الخاص غير موجود',
+                    path: privateKeyPath
+                });
+            }
+            privateKey = fs.readFileSync(privateKeyPath, 'utf8');
         }
 
-        const egsInfo = buildEgsInfo(fs.readFileSync(privateKeyPath, 'utf8'), creds);
+        const egsInfo = buildEgsInfo(privateKey, creds);
         const egs = new EGS(egsInfo);
         const zInvoice = buildSimplifiedInvoice(egsInfo, invoice, items, Number(invoice.id) || 1);
         const { signed_invoice_string, invoice_hash, qr } = egs.signInvoice(zInvoice, true);
