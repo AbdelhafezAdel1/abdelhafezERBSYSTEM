@@ -363,6 +363,9 @@ router.post('/report', async (req, res) => {
                 });
             }
             privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+        } else {
+            // Fix literal \n that might be pasted from Render dashboard
+            privateKey = privateKey.replace(/\\n/g, '\n');
         }
 
         const egsInfo = buildEgsInfo(privateKey, creds);
