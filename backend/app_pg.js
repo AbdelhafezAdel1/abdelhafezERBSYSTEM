@@ -447,50 +447,7 @@ app.post("/api/invoices", async (req, res) => {
 
     // Send to ZATCA automatically if Final
     let zatca_status = null;
-    if (status === 'Final') {
-      try {
-        const company = await db.query('SELECT * FROM companies WHERE id = $1', [company_id]);
-        const comp = company.rows[0] || {};
-        const zatcaRes = await fetch(`http://localhost:${process.env.PORT || 3100}/api/zatca/report`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            invoice: {
-              id: `INV-${invoiceId}`,
-              date: date,
-              total_before_tax,
-              vat_amount,
-              total_after_tax,
-              company_name: comp.name || 'عميل',
-              company_vat: comp.vat_number || '300000000000003'
-            },
-            items: items.map(it => ({
-              description: it.description,
-              quantity: it.quantity,
-              unit_price: it.unit_price,
-              taxable: it.taxable
-            }))
-          })
-        });
-        const zatcaData = await zatcaRes.json();
-        zatca_status = zatcaData.status || (zatcaData.success ? 'REPORTED' : 'FAILED');
-        const zatca_response = zatcaData;
-        console.log(`✅ ZATCA Auto-Report for Invoice #${invoiceId}: ${zatca_status}`);
-        
-        // Update DB with ZATCA response
-        await client.query(
-          "UPDATE invoices SET zatca_status = $1, zatca_reported_at = NOW(), zatca_response = $2 WHERE id = $3",
-          [zatca_status, JSON.stringify(zatca_response), invoiceId]
-        );
-        DataCache.updateInvoice(invoiceId, { zatca_status });
 
-      } catch (ze) {
-        console.error(`❌ ZATCA Auto-Report failed for Invoice #${invoiceId}:`, ze.message);
-        zatca_status = 'FAILED';
-        await client.query("UPDATE invoices SET zatca_status = 'FAILED' WHERE id = $1", [invoiceId]);
-        DataCache.updateInvoice(invoiceId, { zatca_status: 'FAILED' });
-      }
-    }
 
     res.json({ id: invoiceId, qr_code: qrBase64, zatca_status });
   } catch (err) {

@@ -593,10 +593,24 @@ async function loadCompanyOptions(selectId) {
     const firstOpt = select.options[0] ? select.options[0].outerHTML : '';
     const isFilter = selectId.includes('filter') || selectId.includes('dash') || selectId.includes('tax');
 
+    if (select.tomselect) {
+        select.tomselect.destroy();
+    }
+
     select.innerHTML = (isFilter ? firstOpt : '<option value="" disabled selected>اختر الشركة</option>') +
         companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
     if (currentVal) select.value = currentVal;
+
+    if (selectId === 'invoice-company' && window.TomSelect) {
+        new TomSelect(select, {
+            create: false,
+            sortField: {
+                field: "text",
+                direction: "asc"
+            }
+        });
+    }
 }
 
 function showAddCompanyModal() {
@@ -628,7 +642,7 @@ document.getElementById('company-form').addEventListener('submit', async (e) => 
     closeModal('company-modal');
     loadCompanies();
 
-    ['invoice-company', 'invoice-filter-company', 'dash-company', 'tax-company', 'bond-company'].forEach(id => {
+    ['invoice-company', 'invoice-filter-company', 'dash-company', 'tax-company', 'bond-company', 'zatca-filter-company'].forEach(id => {
         loadCompanyOptions(id);
     });
 });
@@ -962,10 +976,22 @@ document.getElementById('bond-form').addEventListener('submit', async (e) => {
 // --- ZATCA Manual Upload ---
 async function loadZatcaInvoices() {
     const statusFilter = document.getElementById('zatca-filter-status').value;
+    const startDate = document.getElementById('zatca-start-date').value;
+    const endDate = document.getElementById('zatca-end-date').value;
+    const company = document.getElementById('zatca-filter-company').value;
     
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (company) params.append('companyId', company);
+
     // Fetch all invoices
-    const res = await fetch('/api/invoices');
+    const res = await fetch(`/api/invoices?${params}`);
     let invoices = await res.json();
+    
+    if (document.getElementById('zatca-filter-company').options.length <= 1) {
+        loadCompanyOptions('zatca-filter-company');
+    }
     
     // Filter locally based on status if selected
     if (statusFilter) {
@@ -1001,6 +1027,9 @@ async function loadZatcaInvoices() {
         
         return `
         <tr class="hover:bg-gray-50 transition-colors border-b">
+            <td class="text-center">
+                <input type="checkbox" class="zatca-checkbox w-4 h-4 text-purple-600 rounded" value="${inv.id}" ${zStatus === 'REPORTED' || zStatus === 'REPORTED_WITH_WARNINGS' || zStatus === 'CLEARED' || inv.status === 'Draft' ? 'disabled' : ''}>
+            </td>
             <td><span class="font-mono font-bold text-blue-600">#${inv.id}</span></td>
             <td>${inv.date}</td>
             <td class="font-bold text-gray-700">${inv.company_name}</td>
@@ -1037,6 +1066,54 @@ async function uploadToZatca(id) {
     }
     
     // Reload list
+    loadZatcaInvoices();
+}
+
+function toggleAllZatcaSelection(source) {
+    const checkboxes = document.querySelectorAll('.zatca-checkbox:not([disabled])');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+}
+
+async function uploadSelectedToZatca() {
+    const selected = Array.from(document.querySelectorAll('.zatca-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) {
+        showToast('الرجاء تحديد فاتورة واحدة على الأقل', 'warning');
+        return;
+    }
+    
+    if (!confirm(`هل أنت متأكد من إرسال عدد ${selected.length} فواتير إلى هيئة الزكاة والضريبة والجمارك؟ لا يمكن التراجع.`)) return;
+    
+    const btn = event.currentTarget;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-2"></i> جاري الإرسال...';
+    btn.disabled = true;
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const id of selected) {
+        try {
+            const res = await fetch(`/api/invoices/${id}/zatca`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        } catch (e) {
+            failCount++;
+        }
+    }
+    
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+    
+    showToast(`تم إرسال ${successCount} بنجاح، وفشل ${failCount}`, successCount > 0 ? 'success' : 'error', 5000);
+    
+    // Uncheck select all
+    const selectAll = document.getElementById('zatca-select-all');
+    if (selectAll) selectAll.checked = false;
+    
     loadZatcaInvoices();
 }
 

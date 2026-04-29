@@ -1,0 +1,19 @@
+# ==============================================================================
+# ⚠️ هام جداً: متغيرات البيئة الخاصة بهيئة الزكاة والضريبة والجمارك لمنصة Render
+# ==============================================================================
+# نظراً لأن مجلد الشهادات (certs) مستثنى من الرفع للـ Git (موجود في gitignore)، 
+# فإن الخادم على منصة Render لا يمكنه الوصول لملفات الشهادة والمفتاح الخاص.
+#
+# الحل هو إضافة المتغيرات التالية في لوحة تحكم Render:
+# 1. اذهب إلى Dashboard الخاص بـ Render
+# 2. اختر التطبيق الخاص بك
+# 3. اذهب إلى "Environment"
+# 4. أضف المتغيرات التالية:
+
+ZATCA_PRODUCTION_CSID
+{"binarySecurityToken":"MIIFbTCCBROgAwIBAgITFwACN//4T3J9FMeZWQABAAI3/zAKBggqhkjOPQQDAjBiMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxEzARBgoJkiaJk/IsZAEZFgNnb3YxFzAVBgoJkiaJk/IsZAEZFgdleHRnYXp0MRswGQYDVQQDExJQUlpFSU5WT0lDRVNDQTMtQ0EwHhcNMjYwNDI3MDE1OTM3WhcNMzAwNDAyMDM0MTAyWjCBhzELMAkGA1UEBhMCU0ExUDBOBgNVBAoMR9mF2KTYs9iz2Kkg2LnZitiz2Ykg2YrZiNiz2YEg2KfZhNi52KfZhdixINmE2YTYqtiu2YTZiti1INin2YTYrNmF2LHZg9mKMRYwFAYDVQQLEw1EYW1tYW0gQnJhbmNoMQ4wDAYDVQQDEwVFR1MtMTBWMBAGByqGSM49AgEGBSuBBAAKA0IABCdAS0AMofs9MmuHJ+3fczwaoc/wg4tTaMia38Wku1VUla0tNVWijPG0xyJbZaRhAQR0HgKoo326fznbd1rrFcyjggODMIIDfzCB7QYDVR0RBIHlMIHipIHfMIHcMVswWQYDVQQEDFIxLUlzc2EgWW91c3VmIEFsIEFtZXIgQ3VzdG9tcyBDbGVhcmFuY2V8Mi1Nb2RlbC0xfDMtZWQyMmYxZDgtZTZhMi0xMTE4LTliNTgtZDlhOGYxMR8wHQYKCZImiZPyLGQBAQwPMzEwMTM3NTIxMzAwMDAzMQ0wCwYDVQQMDAQwMTAwMTEwLwYDVQQaDCgwMDA4IFByaW5jZSBNb2hhbW1lZCBiaW4gRmFoZCBTdCwgRGFtbWFtMRowGAYDVQQPDBFDdXN0b21zIENsZWFyYW5jZTAdBgNVHQ4EFgQU/NgGVN4UncnVBvOLajuQWq5/yawwHwYDVR0jBBgwFoAUH+WY1CYbZRmb2Yuzu+z+4aeWO3YwgeUGA1UdHwSB3TCB2jCB16CB1KCB0YaBzmxkYXA6Ly8vQ049UFJaRUlOVk9JQ0VTQ0EzLUNBKDEpLENOPVBSWkVJTlZPSUNFU0NBMyxDTj1DRFAsQ049UHVibGljJTIwS2V5JTIwU2VydmljZXMsQ049U2VydmljZXMsQ049Q29uZmlndXJhdGlvbixEQz1leHR6YXRjYSxEQz1nb3YsREM9bG9jYWw/Y2VydGlmaWNhdGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlvblBvaW50MIHOBggrBgEFBQcBAQSBwTCBvjCBuwYIKwYBBQUHMAKGga5sZGFwOi8vL0NOPVBSWkVJTlZPSUNFU0NBMy1DQSxDTj1BSUEsQ049UHVibGljJTIwS2V5JTIwU2VydmljZXMsQ049U2VydmljZXMsQ049Q29uZmlndXJhdGlvbixEQz1leHR6YXRjYSxEQz1nb3YsREM9bG9jYWw/Y0FDZXJ0aWZpY2F0ZT9iYXNlP29iamVjdENsYXNzPWNlcnRpZmljYXRpb25BdXRob3JpdHkwDgYDVR0PAQH/BAQDAgeAMDwGCSsGAQQBgjcVBwQvMC0GJSsGAQQBgjcVCIGGqB2E0PsShu2dJIfO+xnTwFVmh/qlZYXZhD4CAWQCAQ4wHQYDVR0lBBYwFAYIKwYBBQUHAwMGCCsGAQUFBwMCMCcGCSsGAQQBgjcVCgQaMBgwCgYIKwYBBQUHAwMwCgYIKwYBBQUHAwIwCgYIKoZIzj0EAwIDSAAwRQIhAOgDhVxMLMVQ2za1bgApFLgqcM7G5WFMna46N7zmnJjhAiAjY9XbFh0ROfIfa517aZPYjytSu5bcMX+4CHg2Uu+9OA==","secret":"9uf6UbWLOQ++lQsvxVaRDS67QA3uclm3BsH2J/6id9g=","requestId":145407853158,"savedAt":"2026-04-27T02:09:55.555Z"}
+
+ZATCA_PRIVATE_KEY
+-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIDVyvSm/BbeaGdE7CYqr1Qts/zobIQ97+JHxys9tYMP9oAcGBSuBBAAK\noUQDQgAEJ0BLQAyh+z0ya4cn7d9zPBqhz/CDi1NoyJrfxaS7VVSVrS01VaKM8bTH\nIltlpGEBBHQeAqijfbp/Odt3WusVzA==\n-----END EC PRIVATE KEY-----
+
+# بعد إضافة المتغيرات، قم بعمل Deploy من جديد أو سيبدأ Render بالبناء تلقائياً.

@@ -9,6 +9,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <link rel="stylesheet" href="/css/style.css" />
     <style>
@@ -584,8 +586,25 @@
             <section id="zatca-manual" class="section hidden">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-3xl font-bold text-gray-800">هيئة الزكاة والضريبة والجمارك</h2>
+                    <button onclick="uploadSelectedToZatca()" class="btn bg-purple-600 text-white hover:bg-purple-700">
+                        <i class="fas fa-paper-plane ml-2"></i> إرسال المحدد للضريبة
+                    </button>
                 </div>
                 <div class="card p-4 mb-6 flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">من تاريخ</label>
+                        <input type="date" id="zatca-start-date" class="w-full">
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">إلى تاريخ</label>
+                        <input type="date" id="zatca-end-date" class="w-full">
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
+                        <select id="zatca-filter-company" class="w-full">
+                            <option value="">كل الشركات</option>
+                        </select>
+                    </div>
                     <div class="flex-1 min-w-[200px]">
                         <label class="block text-sm font-medium text-gray-700 mb-1">حالة الرفع</label>
                         <select id="zatca-filter-status" class="w-full" onchange="loadZatcaInvoices()">
@@ -603,6 +622,9 @@
                     <table class="min-w-full">
                         <thead>
                             <tr>
+                                <th class="w-10 text-center">
+                                    <input type="checkbox" id="zatca-select-all" onchange="toggleAllZatcaSelection(this)">
+                                </th>
                                 <th>رقم الفاتورة</th>
                                 <th>التاريخ</th>
                                 <th>الشركة</th>
