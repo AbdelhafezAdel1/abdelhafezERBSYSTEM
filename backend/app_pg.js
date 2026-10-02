@@ -377,8 +377,8 @@ app.post("/api/invoices", async (req, res) => {
   const total_after_tax = total_before_tax + vat_amount;
 
   const qrBase64 = generateZatcaTLV(
-    "Abdelhafiz Adel",
-    "300000000000003",
+    "essa yousef alamir",
+    "310137521300003",
     new Date().toISOString(),
     total_after_tax.toFixed(2),
     vat_amount.toFixed(2),
@@ -523,8 +523,8 @@ app.put("/api/invoices/:id", async (req, res) => {
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
   const qrBase64 = generateZatcaTLV(
-    "Abdelhafiz Adel",
-    "300000000000003",
+    "essa yousef alamir",
+    "310137521300003",
     new Date().toISOString(),
     total_after_tax.toFixed(2),
     vat_amount.toFixed(2),

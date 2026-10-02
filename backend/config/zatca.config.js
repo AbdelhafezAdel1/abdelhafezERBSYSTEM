@@ -33,10 +33,10 @@ module.exports = {
 
     // Company Information (Seller)
     COMPANY_INFO: {
-        VAT_NUMBER: '300000000000003',
+        VAT_NUMBER: '310137521300003',
         CR_NUMBER: '1234567890',
-        COMPANY_NAME_AR: 'عبدالحفيظ عادل',
-        COMPANY_NAME_EN: 'Abdelhafiz Adel',
+        COMPANY_NAME_AR: 'مؤسسة عيسى يوسف العامر للتخليص الجمركي',
+        COMPANY_NAME_EN: 'essa yousef alamir',
         BUILDING_NUMBER: '1234',
         STREET_NAME_AR: 'شارع الملك فهد',
         STREET_NAME_EN: 'King Fahd Street',

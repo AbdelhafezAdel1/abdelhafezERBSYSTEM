@@ -163,7 +163,7 @@ app.post('/api/invoices', (req, res) => {
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
 
-  const qrBase64 = generateZatcaTLV('Abdelhafiz Adel', '300000000000003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
+  const qrBase64 = generateZatcaTLV('essa yousef alamir', '310137521300003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
 
   db.run(
     `INSERT INTO invoices (company_id, date, customs_office, shipment_type, notes, status, qr_code, total_before_tax, clearance_fee, vat_amount, total_after_tax)
@@ -227,7 +227,7 @@ app.put('/api/invoices/:id', (req, res) => {
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
 
-  const qrBase64 = generateZatcaTLV('Abdelhafiz Adel', '300000000000003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
+  const qrBase64 = generateZatcaTLV('essa yousef alamir', '310137521300003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
 
   db.run(
     `UPDATE invoices SET company_id = ?, date = ?, customs_office = ?, shipment_type = ?, notes = ?, status = ?, total_before_tax = ?, clearance_fee = ?, vat_amount = ?, total_after_tax = ?, qr_code = ? WHERE id = ?`,
