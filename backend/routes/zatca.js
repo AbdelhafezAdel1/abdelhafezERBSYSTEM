@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { EGS, ZATCASimplifiedTaxInvoice } = require('zatca-xml-js');
+const db        = require('../db');
+const DataCache = require('../utils/DataCache');
 
 // ============================================================================
 // ZATCA E-Invoicing Routes — مسارات هيئة الزكاة والضريبة والجمارك
@@ -587,6 +589,228 @@ router.get('/production-csid-status', async (req, res) => {
             endpoint: `${ZATCA_BASE_URL}/production/csids`,
             ...zErr
         });
+    }
+});
+
+
+// ─── Validation Helpers ────────────────────────────────────────────────────────
+
+/** رسالة خطأ موحّدة */
+function apiError(res, status, code, message, details = null) {
+    const body = { success: false, error: { code, message } };
+    if (details) body.error.details = details;
+    return res.status(status).json(body);
+}
+
+/** التحقق من أن القيمة رقم صالح وموجب */
+function isPositiveNumber(val) {
+    const n = parseFloat(val);
+    return !isNaN(n) && isFinite(n) && n >= 0;
+}
+
+// ─── Endpoint ─────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/zatca/fix-qr-code
+ * ============================
+ * إصلاح QR Code الخاطئ لفاتورة ZATCA مقبولة (zatca_status = ACCEPTED)
+ *
+ * Body:   { "invoiceId": <number|string> }
+ * 200 OK: { success, message, invoice, qr_code_updated }
+ *
+ * رموز الأخطاء:
+ *   MISSING_INVOICE_ID   — الحقل غير مرسل
+ *   INVALID_INVOICE_ID   — قيمة غير صالحة
+ *   INVOICE_NOT_FOUND    — لا توجد فاتورة بهذا المعرّف
+ *   WRONG_ZATCA_STATUS   — الفاتورة ليست ACCEPTED
+ *   INCOMPLETE_DATA      — بيانات ناقصة لتوليد QR
+ *   DB_UPDATE_FAILED     — فشل تحديث قاعدة البيانات
+ */
+router.post('/fix-qr-code', async (req, res) => {
+    const startTime = Date.now();
+    const { invoiceId } = req.body;
+
+    // ── 1. Validate Body ──────────────────────────────────────────────────────
+    if (invoiceId === undefined || invoiceId === null || invoiceId === '') {
+        return apiError(res, 400, 'MISSING_INVOICE_ID',
+            'الحقل "invoiceId" مطلوب في جسم الطلب.');
+    }
+
+    const parsedId = parseInt(invoiceId, 10);
+    if (isNaN(parsedId) || parsedId <= 0) {
+        return apiError(res, 400, 'INVALID_INVOICE_ID',
+            `قيمة invoiceId غير صالحة: "${invoiceId}". يجب أن تكون رقماً صحيحاً موجباً.`);
+    }
+
+    console.log(`🔧 [fix-qr-code] بدء إصلاح QR للفاتورة ID=${parsedId}`);
+
+    try {
+        // ── 2. Fetch Invoice from DB ──────────────────────────────────────────
+        const invoiceRes = await db.query(
+            `SELECT i.*,
+                    c.name       AS client_name,
+                    c.vat_number AS client_vat
+             FROM   invoices  i
+             LEFT JOIN companies c ON c.id = i.company_id
+             WHERE  i.id = $1`,
+            [parsedId]
+        );
+
+        if (invoiceRes.rows.length === 0) {
+            return apiError(res, 404, 'INVOICE_NOT_FOUND',
+                `لا توجد فاتورة بالمعرّف: ${parsedId}`);
+        }
+
+        const invoice = invoiceRes.rows[0];
+        console.log(`📄 [fix-qr-code] الفاتورة #${parsedId} | zatca_status="${invoice.zatca_status}"`);
+
+        // ── 3. Validate ZATCA Status ──────────────────────────────────────────
+        // نقبل الفواتير المقبولة في الزكاة (ACCEPTED أو REPORTED أو CLEARED)
+        const validStatuses = ['ACCEPTED', 'REPORTED', 'CLEARED', 'REPORTED_WITH_WARNINGS'];
+        const currentStatus = (invoice.zatca_status || '').toUpperCase();
+        if (!validStatuses.includes(currentStatus)) {
+            return apiError(res, 409, 'WRONG_ZATCA_STATUS',
+                `لا يمكن إصلاح QR Code — حالة ZATCA الحالية: "${invoice.zatca_status || 'غير محددة'}". المطلوب: ACCEPTED أو REPORTED.`,
+                { current_status: invoice.zatca_status, required_statuses: validStatuses }
+            );
+        }
+
+        // ── 4. Determine Correct QR Code ───────────────────────────────────────
+        let newQRCode = null;
+
+        // أ) إذا كانت الفاتورة موثقة ومرسلة و zatca_response يحتوي على الباركود الموقّع الأصلي من هيئة الزكاة
+        if (invoice.zatca_response) {
+            try {
+                const zResp = typeof invoice.zatca_response === 'string'
+                    ? JSON.parse(invoice.zatca_response)
+                    : invoice.zatca_response;
+                if (zResp.qrCode && typeof zResp.qrCode === 'string' && zResp.qrCode.length > 20) {
+                    newQRCode = zResp.qrCode;
+                    console.log(`✨ [fix-qr-code] تم استخراج الباركود المعتمد والموقّع من استجابة ZATCA للفاتورة #${parsedId}`);
+                }
+            } catch (e) {
+                console.warn(`⚠️ [fix-qr-code] تعذر استخراج QR من zatca_response:`, e.message);
+            }
+        }
+
+        // ب) في حال عدم توفره في zatca_response، توليد TLV QR رسمي وصحيح
+        if (!newQRCode) {
+            // جلب بيانات المنشأة البائعة من إعدادات النظام (Settings)
+            let sellerName = invoice.seller_name;
+            let taxId = invoice.tax_id;
+
+            if (!sellerName || !taxId) {
+                try {
+                    const settingsRes = await db.query('SELECT company_name_ar, vat_number FROM settings WHERE id = 1');
+                    if (settingsRes.rows.length > 0) {
+                        sellerName = sellerName || settingsRes.rows[0].company_name_ar;
+                        taxId = taxId || settingsRes.rows[0].vat_number;
+                    }
+                } catch (e) {
+                    console.warn('⚠️ [fix-qr-code] خطأ في قراءة settings:', e.message);
+                }
+            }
+
+            // استخدام الثوابت الرسمية المسجلة لدى الهيئة كـ Fallback
+            sellerName = sellerName || SELLER.nameAr;
+            taxId      = taxId || SELLER.vatNumber;
+
+            const total = invoice.total_after_tax || invoice.total_amount;
+            const vat   = invoice.vat_amount;
+            const dateVal = invoice.date || invoice.invoice_date;
+
+            const fieldErrors = [];
+            if (!sellerName?.trim()) fieldErrors.push('seller_name (اسم المنشأة البائعة)');
+            if (!taxId?.trim())      fieldErrors.push('tax_id (الرقم الضريبي للبائع)');
+            if (!dateVal)            fieldErrors.push('date (تاريخ الفاتورة)');
+            if (!isPositiveNumber(total)) fieldErrors.push('total_after_tax (إجمالي الفاتورة)');
+            if (!isPositiveNumber(vat))   fieldErrors.push('vat_amount (مبلغ الضريبة)');
+
+            if (fieldErrors.length > 0) {
+                return apiError(res, 422, 'INCOMPLETE_DATA',
+                    'بيانات ناقصة لتوليد QR Code. يرجى إكمال الحقول التالية.',
+                    { missing_fields: fieldErrors }
+                );
+            }
+
+            const invoiceDateISO = new Date(dateVal).toISOString();
+            const totalAmount    = parseFloat(total).toFixed(2);
+            const vatAmount      = parseFloat(vat).toFixed(2);
+
+            newQRCode = generateTLV(
+                sellerName.trim(),
+                taxId.trim(),
+                invoiceDateISO,
+                totalAmount,
+                vatAmount
+            );
+        }
+
+        // ── 5. Skip if Already Correct ────────────────────────────────────────
+        if (invoice.qr_code === newQRCode) {
+            console.log(`ℹ️  [fix-qr-code] الفاتورة #${parsedId}: QR Code صحيح بالفعل.`);
+            return res.json({
+                success:         true,
+                qr_code_updated: false,
+                message:         'QR Code صحيح بالفعل — لا يحتاج إصلاح.',
+                invoice: {
+                    id:           invoice.id,
+                    zatca_status: invoice.zatca_status,
+                    qr_code:      invoice.qr_code,
+                },
+                duration_ms: Date.now() - startTime,
+            });
+        }
+
+        // ── 7. Update DB (qr_code ONLY) ────────────────────────────────────────
+        //    شرط مزدوج لضمان عدم تعديل فاتورة تغيّرت حالتها في اللحظة الأخيرة
+        const updateRes = await db.query(
+            `UPDATE invoices
+             SET    qr_code = $1
+             WHERE  id = $2
+               AND  UPPER(zatca_status) IN ('ACCEPTED', 'REPORTED', 'CLEARED', 'REPORTED_WITH_WARNINGS')
+             RETURNING
+                 id, status, zatca_status, qr_code, date,
+                 total_after_tax, vat_amount`,
+            [newQRCode, parsedId]
+        );
+
+        if (updateRes.rowCount === 0) {
+            // الصف لم يتحدث — أُلغيت الفاتورة أو تغيرت حالتها
+            return apiError(res, 409, 'DB_UPDATE_FAILED',
+                'فشل التحديث: ربما تغيّرت حالة الفاتورة أثناء المعالجة. يرجى المحاولة مرة أخرى.');
+        }
+
+        const updated = updateRes.rows[0];
+
+        // ── 8. Sync DataCache ──────────────────────────────────────────────────
+        DataCache.updateInvoice(parsedId, { qr_code: newQRCode });
+
+        console.log(`✅ [fix-qr-code] تم إصلاح QR للفاتورة #${parsedId} في ${Date.now() - startTime}ms`);
+
+        // ── 9. Return Updated Invoice ──────────────────────────────────────────
+        return res.json({
+            success:         true,
+            qr_code_updated: true,
+            message:         'تم إصلاح QR Code بنجاح.',
+            invoice: {
+                id:             updated.id,
+                status:         updated.status,
+                zatca_status:   updated.zatca_status,
+                qr_code:        updated.qr_code,
+                date:           updated.date,
+                total_after_tax: updated.total_after_tax,
+                vat_amount:     updated.vat_amount,
+            },
+            duration_ms: Date.now() - startTime,
+        });
+
+    } catch (err) {
+        console.error(`❌ [fix-qr-code] خطأ داخلي للفاتورة #${parsedId}:`, err.message);
+        return apiError(res, 500, 'INTERNAL_ERROR',
+            'حدث خطأ داخلي أثناء إصلاح QR Code.',
+            { detail: err.message }
+        );
     }
 });
 
