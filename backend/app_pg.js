@@ -93,14 +93,25 @@ const requireAuth = (req, res, next) => {
 };
 
 // Helper: ZATCA TLV QR generator
-function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat) {
+function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat) {
+  const seller = sellerName || "مؤسسة عيسي يوسف العامر للتخليص الجمركي";
+  const vatNum = vatNumber || "310137521300003";
+
   const tags = [
-    { id: 1, value: sellerName },
-    { id: 2, value: vatNumber },
+    { id: 1, value: seller },
+    { id: 2, value: vatNum },
     { id: 3, value: timestamp },
-    { id: 4, value: total },
-    { id: 5, value: vat },
+    { id: 4, value: String(total) },
+    { id: 5, value: String(vat) },
   ];
+
+  if (customerName && String(customerName).trim()) {
+    tags.push({ id: 6, value: String(customerName).trim() });
+  }
+  if (customerVat && String(customerVat).trim()) {
+    tags.push({ id: 7, value: String(customerVat).trim() });
+  }
+
   let buffer = Buffer.alloc(0);
   for (const tag of tags) {
     const val = Buffer.from(tag.value.toString(), "utf8");
@@ -109,6 +120,58 @@ function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat) {
     buffer = Buffer.concat([buffer, id, len, val]);
   }
   return buffer.toString("base64");
+}
+
+function formatInvoiceTimestamp(dateInput, createdAt) {
+  try {
+    let d;
+    if (dateInput) {
+      d = new Date(dateInput);
+      if (createdAt && d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+        const c = new Date(createdAt);
+        if (!isNaN(c.getTime())) {
+          d.setHours(c.getHours(), c.getMinutes(), c.getSeconds());
+        }
+      } else if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+        const now = new Date();
+        d.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+      }
+    } else if (createdAt) {
+      d = new Date(createdAt);
+    } else {
+      d = new Date();
+    }
+    if (isNaN(d.getTime())) d = new Date();
+    return d.toISOString();
+  } catch (e) {
+    return new Date().toISOString();
+  }
+}
+
+function isOldQR(qrBase64) {
+  if (!qrBase64 || typeof qrBase64 !== "string") return true;
+  try {
+    const buf = Buffer.from(qrBase64, "base64");
+    const str = buf.toString("utf8");
+    if (
+      str.includes("300000000000003") ||
+      str.includes("3000000000") ||
+      str.includes("Abdelhafiz") ||
+      str.includes("essa yousef")
+    ) {
+      return true;
+    }
+    if (!str.includes("310137521300003")) return true;
+    if (
+      !str.includes("مؤسسة عيسي يوسف العامر للتخليص الجمركي") &&
+      !str.includes("مؤسسة عيسى يوسف العامر للتخليص الجمركي")
+    ) {
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return true;
+  }
 }
 
 const zatcaRoutes = require("./routes/zatca");
@@ -376,12 +439,33 @@ app.post("/api/invoices", async (req, res) => {
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
 
+  // جلب بيانات العميل (الاسم والرقم الضريبي) لتضمينها في الباركود
+  let customerName = req.body.company_name || "";
+  let customerVat = req.body.vat_number || "";
+  if (company_id && (!customerName || !customerVat)) {
+    try {
+      const compRes = await db.query(
+        "SELECT name, vat_number FROM companies WHERE id = $1",
+        [company_id],
+      );
+      if (compRes.rows.length > 0) {
+        customerName = customerName || compRes.rows[0].name || "";
+        customerVat = customerVat || compRes.rows[0].vat_number || "";
+      }
+    } catch (e) {
+      console.warn("Could not fetch customer details for QR:", e.message);
+    }
+  }
+
+  const invoiceTimestamp = formatInvoiceTimestamp(date);
   const qrBase64 = generateZatcaTLV(
-    "essa yousef alamir",
+    "مؤسسة عيسي يوسف العامر للتخليص الجمركي",
     "310137521300003",
-    new Date().toISOString(),
+    invoiceTimestamp,
     total_after_tax.toFixed(2),
     vat_amount.toFixed(2),
+    customerName,
+    customerVat,
   );
 
   // استخدام client واحد من pool للمعاملة
@@ -474,6 +558,26 @@ app.get("/api/invoices/:id", async (req, res) => {
       [req.params.id],
     );
     invoice.items = itemsRes.rows;
+
+    // التأكد من أن الباركود يحتوي على المعلومات الصحيحة والمحدثة
+    const invoiceTimestamp = formatInvoiceTimestamp(invoice.date, invoice.created_at);
+    const expectedQR = generateZatcaTLV(
+      "مؤسسة عيسي يوسف العامر للتخليص الجمركي",
+      "310137521300003",
+      invoiceTimestamp,
+      parseFloat(invoice.total_after_tax || 0).toFixed(2),
+      parseFloat(invoice.vat_amount || 0).toFixed(2),
+      invoice.company_name || "",
+      invoice.vat_number || "",
+    );
+
+    // إذا كان الباركود غير موجود أو يحتوي على بيانات قديمة/خاطئة يتم تحديثه
+    if (!invoice.qr_code || isOldQR(invoice.qr_code)) {
+      invoice.qr_code = expectedQR;
+      db.query("UPDATE invoices SET qr_code = $1 WHERE id = $2", [expectedQR, invoice.id]).catch(() => {});
+      DataCache.updateInvoice(invoice.id, { qr_code: expectedQR });
+    }
+
     res.json(invoice);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -522,12 +626,34 @@ app.put("/api/invoices/:id", async (req, res) => {
   const vat_amount = taxable_total * 0.15;
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
+
+  // جلب بيانات العميل (الاسم والرقم الضريبي) لتضمينها في الباركود
+  let customerName = req.body.company_name || "";
+  let customerVat = req.body.vat_number || "";
+  if (company_id && (!customerName || !customerVat)) {
+    try {
+      const compRes = await db.query(
+        "SELECT name, vat_number FROM companies WHERE id = $1",
+        [company_id],
+      );
+      if (compRes.rows.length > 0) {
+        customerName = customerName || compRes.rows[0].name || "";
+        customerVat = customerVat || compRes.rows[0].vat_number || "";
+      }
+    } catch (e) {
+      console.warn("Could not fetch customer details for QR:", e.message);
+    }
+  }
+
+  const invoiceTimestamp = formatInvoiceTimestamp(date);
   const qrBase64 = generateZatcaTLV(
-    "essa yousef alamir",
+    "مؤسسة عيسي يوسف العامر للتخليص الجمركي",
     "310137521300003",
-    new Date().toISOString(),
+    invoiceTimestamp,
     total_after_tax.toFixed(2),
     vat_amount.toFixed(2),
+    customerName,
+    customerVat,
   );
 
   // استخدام client واحد من pool للمعاملة
@@ -633,7 +759,7 @@ app.post("/api/invoices/:id/zatca", async (req, res) => {
           vat_amount: invoice.vat_amount,
           total_after_tax: invoice.total_after_tax,
           company_name: comp.name || 'عميل',
-          company_vat: comp.vat_number || '300000000000003'
+          company_vat: comp.vat_number || ''
         },
         items: items.map(it => ({
           description: it.description,
@@ -952,6 +1078,48 @@ async function initializeDatabase() {
       SEED_USER.username,
       SEED_USER.password,
     ]);
+  }
+
+  // تحديث إعدادات المنشأة الافتراضية بالاسم والرقم الضريبي الصحيحين
+  try {
+    await db.query(`
+      UPDATE settings 
+      SET company_name_ar = 'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
+          company_name_en = 'Issa Yousuf Al Amer Customs Clearance',
+          vat_number = '310137521300003'
+      WHERE id = 1
+    `);
+  } catch (e) {
+    console.warn("Settings update on startup:", e.message);
+  }
+
+  // تحديث الباركود لجميع الفواتير القديمة في قاعدة البيانات للتأكد من مطابقتها لكافة الحقول المطلوبة
+  try {
+    const oldInvoices = await db.query(`
+      SELECT i.id, i.date, i.created_at, i.total_after_tax, i.vat_amount, i.qr_code,
+             c.name as company_name, c.vat_number
+      FROM invoices i
+      LEFT JOIN companies c ON i.company_id = c.id
+    `);
+    for (const inv of oldInvoices.rows) {
+      if (!inv.qr_code || isOldQR(inv.qr_code)) {
+        const timestamp = formatInvoiceTimestamp(inv.date, inv.created_at);
+        const fixedQR = generateZatcaTLV(
+          "مؤسسة عيسي يوسف العامر للتخليص الجمركي",
+          "310137521300003",
+          timestamp,
+          parseFloat(inv.total_after_tax || 0).toFixed(2),
+          parseFloat(inv.vat_amount || 0).toFixed(2),
+          inv.company_name || "",
+          inv.vat_number || ""
+        );
+        await db.query("UPDATE invoices SET qr_code = $1 WHERE id = $2", [fixedQR, inv.id]);
+        DataCache.updateInvoice(inv.id, { qr_code: fixedQR });
+      }
+    }
+    console.log("✅ Verified and updated invoice QR codes");
+  } catch (e) {
+    console.warn("Old invoices QR verification on startup:", e.message);
   }
 }
 

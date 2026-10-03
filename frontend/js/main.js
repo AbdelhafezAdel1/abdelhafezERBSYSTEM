@@ -1128,6 +1128,74 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ZATCA TLV Generator for Frontend (Base64)
+function generateZatcaTLVClient(seller, vat, timestamp, total, tax, customer, customerVat) {
+    function toUtf8Bytes(str) {
+        const utf8 = unescape(encodeURIComponent(str || ''));
+        const arr = [];
+        for (let i = 0; i < utf8.length; i++) {
+            arr.push(utf8.charCodeAt(i));
+        }
+        return arr;
+    }
+    const tags = [
+        { id: 1, val: seller || 'مؤسسة عيسي يوسف العامر للتخليص الجمركي' },
+        { id: 2, val: vat || '310137521300003' },
+        { id: 3, val: timestamp },
+        { id: 4, val: total },
+        { id: 5, val: tax }
+    ];
+    if (customer && String(customer).trim()) tags.push({ id: 6, val: String(customer).trim() });
+    if (customerVat && String(customerVat).trim()) tags.push({ id: 7, val: String(customerVat).trim() });
+
+    let bytes = [];
+    for (const tag of tags) {
+        const valBytes = toUtf8Bytes(String(tag.val || ''));
+        bytes.push(tag.id);
+        bytes.push(valBytes.length);
+        bytes = bytes.concat(valBytes);
+    }
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+function formatInvoiceTimestampClient(dateStr) {
+    if (!dateStr) return new Date().toISOString();
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return new Date().toISOString();
+        if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+            const now = new Date();
+            d.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+        }
+        return d.toISOString();
+    } catch (e) {
+        return new Date().toISOString();
+    }
+}
+
+function isOldQRClient(qrBase64) {
+    if (!qrBase64 || typeof qrBase64 !== 'string') return true;
+    try {
+        const decoded = atob(qrBase64);
+        if (
+            decoded.includes('300000000000003') ||
+            decoded.includes('3000000000') ||
+            decoded.includes('Abdelhafiz') ||
+            decoded.includes('essa yousef')
+        ) {
+            return true;
+        }
+        if (!decoded.includes('310137521300003')) return true;
+        return false;
+    } catch (e) {
+        return true;
+    }
+}
+
 async function viewInvoice(id) {
     try {
         const res = await fetch(`/api/invoices/${id}`);
@@ -1230,7 +1298,7 @@ async function viewInvoice(id) {
 
                             <!-- Center: Barcode (QR Code) -->
                             <div class="w-1/3 flex justify-center pt-1">
-                                ${invoice.qr_code ? `<div id="qrcode" class="p-1 bg-white border border-gray-200 shadow-sm"></div>` : ''}
+                                <div id="qrcode" class="p-1 bg-white border border-gray-200 shadow-sm"></div>
                             </div>
 
                             <!-- Left: Invoice Meta -->
@@ -1257,7 +1325,7 @@ async function viewInvoice(id) {
                                     </h3>
                                     <div class="space-y-1 text-sm">
                                         <div class="flex items-center gap-2">
-                                            <span class="text-gray-600 text-[10px] font-bold uppercase whitespace-nowrap">اسم العمل:</span>
+                                            <span class="text-gray-600 text-[10px] font-bold uppercase whitespace-nowrap">اسم العميل:</span>
                                             <span class="font-bold text-sm text-blue-900 truncate">${invoice.company_name || 'اسم غير متوفر'}</span>
                                         </div>
                                         <div class="flex items-center gap-2">
@@ -1383,19 +1451,29 @@ async function viewInvoice(id) {
             `;
 
         // Render QR Code
-        if (invoice.qr_code) {
-            setTimeout(() => {
-                const qrContainer = document.getElementById('qrcode');
-                if (qrContainer) {
-                    qrContainer.innerHTML = '';
-                    new QRCode(qrContainer, {
-                        text: invoice.qr_code,
-                        width: 90,
-                        height: 90
-                    });
+        setTimeout(() => {
+            const qrContainer = document.getElementById('qrcode');
+            if (qrContainer) {
+                qrContainer.innerHTML = '';
+                let qrData = invoice.qr_code;
+                if (!qrData || isOldQRClient(qrData)) {
+                    qrData = generateZatcaTLVClient(
+                        'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
+                        '310137521300003',
+                        formatInvoiceTimestampClient(invoice.date),
+                        parseFloat(invoice.total_after_tax || 0).toFixed(2),
+                        parseFloat(invoice.vat_amount || 0).toFixed(2),
+                        invoice.company_name || '',
+                        invoice.vat_number || ''
+                    );
                 }
-            }, 100);
-        }
+                new QRCode(qrContainer, {
+                    text: qrData,
+                    width: 90,
+                    height: 90
+                });
+            }
+        }, 100);
 
         // Show Print View with scrolling and centered
         const printViewEl = document.getElementById('print-view');

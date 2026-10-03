@@ -17,7 +17,7 @@ const ZATCA_BASE_URL = 'https://gw-fatoora.zatca.gov.sa/e-invoicing/core';
 
 const SELLER = {
     vatNumber: '310137521300003',
-    nameAr: 'مؤسسة عيسى يوسف العامر للتخليص الجمركي',
+    nameAr: 'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
     city: 'Dammam',
     district: 'Ash Shifa',
     street: 'Prince Mohammed bin Fahd St',
@@ -29,7 +29,7 @@ const SELLER = {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 /** توليد QR code بصيغة TLV Base64 */
-function generateTLV(sellerName, vatNumber, timestamp, total, vat) {
+function generateTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat) {
     const tags = [
         { id: 1, value: sellerName },
         { id: 2, value: vatNumber },
@@ -37,6 +37,12 @@ function generateTLV(sellerName, vatNumber, timestamp, total, vat) {
         { id: 4, value: String(total) },
         { id: 5, value: String(vat) }
     ];
+    if (customerName && String(customerName).trim()) {
+        tags.push({ id: 6, value: String(customerName).trim() });
+    }
+    if (customerVat && String(customerVat).trim()) {
+        tags.push({ id: 7, value: String(customerVat).trim() });
+    }
     let buf = Buffer.alloc(0);
     for (const t of tags) {
         const val = Buffer.from(t.value, 'utf8');
@@ -742,7 +748,9 @@ router.post('/fix-qr-code', async (req, res) => {
                 taxId.trim(),
                 invoiceDateISO,
                 totalAmount,
-                vatAmount
+                vatAmount,
+                invoice.client_name,
+                invoice.client_vat
             );
         }
 

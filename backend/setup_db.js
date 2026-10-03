@@ -90,8 +90,8 @@ db.serialize(() => {
     )`);
 
   // Insert default settings
-  db.run(`INSERT OR IGNORE INTO settings (id, company_name_ar, company_name_en, vat_number, bank_account, address, phone, email) 
-    VALUES (1, 'مؤسسة عبدالحفيظ عادل', 'Abdelhafiz Adel Est.', '300000000000003', '', 'Jeddah', '0126425999', 'ALDHAWI@ABRALHDUD.COM')`);
+  db.run(`INSERT OR REPLACE INTO settings (id, company_name_ar, company_name_en, vat_number, bank_account, address, phone, email) 
+    VALUES (1, 'مؤسسة عيسي يوسف العامر للتخليص الجمركي', 'Issa Yousuf Al Amer Customs Clearance', '310137521300003', '', 'Dammam', '0531055420', 'ALDHAWI@ABRALHDUD.COM')`);
 });
 
 db.close();

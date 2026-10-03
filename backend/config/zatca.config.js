@@ -35,7 +35,7 @@ module.exports = {
     COMPANY_INFO: {
         VAT_NUMBER: '310137521300003',
         CR_NUMBER: '1234567890',
-        COMPANY_NAME_AR: 'مؤسسة عيسى يوسف العامر للتخليص الجمركي',
+        COMPANY_NAME_AR: 'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
         COMPANY_NAME_EN: 'essa yousef alamir',
         BUILDING_NUMBER: '1234',
         STREET_NAME_AR: 'شارع الملك فهد',

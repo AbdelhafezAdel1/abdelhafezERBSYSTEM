@@ -41,7 +41,7 @@ function buildTLVField(tag, value) {
  * @returns {string} - سلسلة Base64 جاهزة للتخزين
  */
 function generateZATCATLVQR(invoice) {
-  // التحقق من اكتمال الحقول الإلزامية (مطابِقة لأسماء أعمدة الـ JOIN في app_pg.js)
+  // التحقق من اكتمال الحقول الإلزامية
   const required = ['seller_name', 'tax_id', 'date', 'total_after_tax', 'vat_amount'];
   for (const field of required) {
     if (invoice[field] == null || invoice[field] === '') {
@@ -56,14 +56,24 @@ function generateZATCATLVQR(invoice) {
   const totalAmount = parseFloat(invoice.total_after_tax).toFixed(2);
   const vatAmount   = parseFloat(invoice.vat_amount).toFixed(2);
 
+  const customerName = invoice.client_name || invoice.customer_name || invoice.company_name;
+  const customerVat  = invoice.client_vat || invoice.customer_vat || invoice.vat_number;
+
   // بناء حقول TLV
   const tlvBuffers = [
     buildTLVField(1, invoice.seller_name),          // اسم البائع
-    buildTLVField(2, String(invoice.tax_id)),        // الرقم الضريبي
-    buildTLVField(3, invoiceDateISO),                // التاريخ
+    buildTLVField(2, String(invoice.tax_id)),        // الرقم الضريبي للبائع
+    buildTLVField(3, invoiceDateISO),                // التاريخ والوقت
     buildTLVField(4, totalAmount),                   // الإجمالي شامل الضريبة
     buildTLVField(5, vatAmount),                     // مبلغ الضريبة
   ];
+
+  if (customerName && String(customerName).trim()) {
+    tlvBuffers.push(buildTLVField(6, String(customerName).trim())); // اسم العميل
+  }
+  if (customerVat && String(customerVat).trim()) {
+    tlvBuffers.push(buildTLVField(7, String(customerVat).trim()));   // الرقم الضريبي للعميل
+  }
 
   // دمج جميع الحقول في Buffer واحد ثم تحويله إلى Base64
   const combinedBuffer = Buffer.concat(tlvBuffers);
@@ -141,7 +151,7 @@ async function fixInvoiceQR(invoiceId) {
     }
 
     // fallback
-    invoice.seller_name = invoice.seller_name || 'مؤسسة عيسى يوسف العامر للتخليص الجمركي';
+    invoice.seller_name = invoice.seller_name || 'مؤسسة عيسي يوسف العامر للتخليص الجمركي';
     invoice.tax_id      = invoice.tax_id || '310137521300003';
 
     try {

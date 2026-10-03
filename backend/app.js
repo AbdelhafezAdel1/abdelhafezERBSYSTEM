@@ -20,14 +20,25 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
 // Helper: ZATCA TLV QR generator
-function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat) {
+function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat) {
+  const seller = sellerName || "مؤسسة عيسي يوسف العامر للتخليص الجمركي";
+  const vatNum = vatNumber || "310137521300003";
+
   const tags = [
-    { id: 1, value: sellerName },
-    { id: 2, value: vatNumber },
+    { id: 1, value: seller },
+    { id: 2, value: vatNum },
     { id: 3, value: timestamp },
-    { id: 4, value: total },
-    { id: 5, value: vat },
+    { id: 4, value: String(total) },
+    { id: 5, value: String(vat) },
   ];
+
+  if (customerName && String(customerName).trim()) {
+    tags.push({ id: 6, value: String(customerName).trim() });
+  }
+  if (customerVat && String(customerVat).trim()) {
+    tags.push({ id: 7, value: String(customerVat).trim() });
+  }
+
   let buffer = Buffer.alloc(0);
   for (const tag of tags) {
     const val = Buffer.from(tag.value.toString(), 'utf8');
@@ -36,6 +47,58 @@ function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat) {
     buffer = Buffer.concat([buffer, id, len, val]);
   }
   return buffer.toString('base64');
+}
+
+function formatInvoiceTimestamp(dateInput, createdAt) {
+  try {
+    let d;
+    if (dateInput) {
+      d = new Date(dateInput);
+      if (createdAt && d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+        const c = new Date(createdAt);
+        if (!isNaN(c.getTime())) {
+          d.setHours(c.getHours(), c.getMinutes(), c.getSeconds());
+        }
+      } else if (d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0) {
+        const now = new Date();
+        d.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+      }
+    } else if (createdAt) {
+      d = new Date(createdAt);
+    } else {
+      d = new Date();
+    }
+    if (isNaN(d.getTime())) d = new Date();
+    return d.toISOString();
+  } catch (e) {
+    return new Date().toISOString();
+  }
+}
+
+function isOldQR(qrBase64) {
+  if (!qrBase64 || typeof qrBase64 !== 'string') return true;
+  try {
+    const buf = Buffer.from(qrBase64, 'base64');
+    const str = buf.toString('utf8');
+    if (
+      str.includes('300000000000003') ||
+      str.includes('3000000000') ||
+      str.includes('Abdelhafiz') ||
+      str.includes('essa yousef')
+    ) {
+      return true;
+    }
+    if (!str.includes('310137521300003')) return true;
+    if (
+      !str.includes('مؤسسة عيسي يوسف العامر للتخليص الجمركي') &&
+      !str.includes('مؤسسة عيسى يوسف العامر للتخليص الجمركي')
+    ) {
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return true;
+  }
 }
 
 // Routes imports
@@ -159,27 +222,40 @@ app.post('/api/invoices', (req, res) => {
   });
 
   const vat_amount = taxable_total * 0.15;
-  // Clearance fee is just for record, usually it's the clearance amount itself
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
 
-  const qrBase64 = generateZatcaTLV('essa yousef alamir', '310137521300003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
+  db.get('SELECT name, vat_number FROM companies WHERE id = ?', [company_id], (cErr, company) => {
+    const customerName = (company && company.name) || req.body.company_name || '';
+    const customerVat = (company && company.vat_number) || req.body.vat_number || '';
+    const invoiceTimestamp = formatInvoiceTimestamp(date);
 
-  db.run(
-    `INSERT INTO invoices (company_id, date, customs_office, shipment_type, notes, status, qr_code, total_before_tax, clearance_fee, vat_amount, total_after_tax)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    [company_id, date, customs_office, shipment_type, notes, status, qrBase64, total_before_tax, clearance_fee, vat_amount, total_after_tax],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      const invoiceId = this.lastID;
-      const stmt = db.prepare(`INSERT INTO invoice_items (invoice_id, description, category, quantity, unit_price, line_total, taxable) VALUES (?,?,?,?,?,?,?)`);
-      items.forEach(it => {
-        stmt.run(invoiceId, it.description, it.category, it.quantity, it.unit_price, it.quantity * it.unit_price, it.taxable ? 1 : 0);
-      });
-      stmt.finalize();
-      res.json({ id: invoiceId, qr_code: qrBase64 });
-    }
-  );
+    const qrBase64 = generateZatcaTLV(
+      'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
+      '310137521300003',
+      invoiceTimestamp,
+      total_after_tax.toFixed(2),
+      vat_amount.toFixed(2),
+      customerName,
+      customerVat
+    );
+
+    db.run(
+      `INSERT INTO invoices (company_id, date, customs_office, shipment_type, notes, status, qr_code, total_before_tax, clearance_fee, vat_amount, total_after_tax)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+      [company_id, date, customs_office, shipment_type, notes, status, qrBase64, total_before_tax, clearance_fee, vat_amount, total_after_tax],
+      function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        const invoiceId = this.lastID;
+        const stmt = db.prepare(`INSERT INTO invoice_items (invoice_id, description, category, quantity, unit_price, line_total, taxable) VALUES (?,?,?,?,?,?,?)`);
+        items.forEach(it => {
+          stmt.run(invoiceId, it.description, it.category, it.quantity, it.unit_price, it.quantity * it.unit_price, it.taxable ? 1 : 0);
+        });
+        stmt.finalize();
+        res.json({ id: invoiceId, qr_code: qrBase64 });
+      }
+    );
+  });
 });
 
 app.get('/api/invoices/:id', (req, res) => {
@@ -192,6 +268,23 @@ app.get('/api/invoices/:id', (req, res) => {
       db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [req.params.id], (err2, items) => {
         if (err2) return res.status(500).json({ error: err2.message });
         invoice.items = items;
+
+        const invoiceTimestamp = formatInvoiceTimestamp(invoice.date, invoice.created_at);
+        const expectedQR = generateZatcaTLV(
+          'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
+          '310137521300003',
+          invoiceTimestamp,
+          parseFloat(invoice.total_after_tax || 0).toFixed(2),
+          parseFloat(invoice.vat_amount || 0).toFixed(2),
+          invoice.company_name || '',
+          invoice.vat_number || ''
+        );
+
+        if (!invoice.qr_code || isOldQR(invoice.qr_code)) {
+          invoice.qr_code = expectedQR;
+          db.run('UPDATE invoices SET qr_code = ? WHERE id = ?', [expectedQR, invoice.id]);
+        }
+
         res.json(invoice);
       });
     }
@@ -227,25 +320,39 @@ app.put('/api/invoices/:id', (req, res) => {
   const clearance_fee = clearance_total;
   const total_after_tax = total_before_tax + vat_amount;
 
-  const qrBase64 = generateZatcaTLV('essa yousef alamir', '310137521300003', new Date().toISOString(), total_after_tax.toFixed(2), vat_amount.toFixed(2));
+  db.get('SELECT name, vat_number FROM companies WHERE id = ?', [company_id], (cErr, company) => {
+    const customerName = (company && company.name) || req.body.company_name || '';
+    const customerVat = (company && company.vat_number) || req.body.vat_number || '';
+    const invoiceTimestamp = formatInvoiceTimestamp(date);
 
-  db.run(
-    `UPDATE invoices SET company_id = ?, date = ?, customs_office = ?, shipment_type = ?, notes = ?, status = ?, total_before_tax = ?, clearance_fee = ?, vat_amount = ?, total_after_tax = ?, qr_code = ? WHERE id = ?`,
-    [company_id, date, customs_office, shipment_type, notes, status, total_before_tax, clearance_fee, vat_amount, total_after_tax, qrBase64, invoiceId],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      // Replace items
-      db.run('DELETE FROM invoice_items WHERE invoice_id = ?', invoiceId, (err2) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        const stmt = db.prepare(`INSERT INTO invoice_items (invoice_id, description, category, quantity, unit_price, line_total, taxable) VALUES (?,?,?,?,?,?,?)`);
-        items.forEach(it => {
-          stmt.run(invoiceId, it.description, it.category, it.quantity, it.unit_price, it.quantity * it.unit_price, it.taxable ? 1 : 0);
+    const qrBase64 = generateZatcaTLV(
+      'مؤسسة عيسي يوسف العامر للتخليص الجمركي',
+      '310137521300003',
+      invoiceTimestamp,
+      total_after_tax.toFixed(2),
+      vat_amount.toFixed(2),
+      customerName,
+      customerVat
+    );
+
+    db.run(
+      `UPDATE invoices SET company_id = ?, date = ?, customs_office = ?, shipment_type = ?, notes = ?, status = ?, total_before_tax = ?, clearance_fee = ?, vat_amount = ?, total_after_tax = ?, qr_code = ? WHERE id = ?`,
+      [company_id, date, customs_office, shipment_type, notes, status, total_before_tax, clearance_fee, vat_amount, total_after_tax, qrBase64, invoiceId],
+      function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        // Replace items
+        db.run('DELETE FROM invoice_items WHERE invoice_id = ?', invoiceId, (err2) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+          const stmt = db.prepare(`INSERT INTO invoice_items (invoice_id, description, category, quantity, unit_price, line_total, taxable) VALUES (?,?,?,?,?,?,?)`);
+          items.forEach(it => {
+            stmt.run(invoiceId, it.description, it.category, it.quantity, it.unit_price, it.quantity * it.unit_price, it.taxable ? 1 : 0);
+          });
+          stmt.finalize();
+          res.json({ id: invoiceId, changes: this.changes, qr_code: qrBase64 });
         });
-        stmt.finalize();
-        res.json({ id: invoiceId, changes: this.changes });
-      });
-    }
-  );
+      }
+    );
+  });
 });
 
 // ---------- Tax Register ----------
