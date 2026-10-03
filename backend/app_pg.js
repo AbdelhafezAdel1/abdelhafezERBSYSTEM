@@ -93,7 +93,7 @@ const requireAuth = (req, res, next) => {
 };
 
 // Helper: ZATCA TLV QR generator
-function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat) {
+function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat, includeCustomer = false) {
   const seller = sellerName || "مؤسسة عيسي يوسف العامر للتخليص الجمركي";
   const vatNum = vatNumber || "310137521300003";
 
@@ -105,11 +105,13 @@ function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customer
     { id: 5, value: String(vat) },
   ];
 
-  if (customerName && String(customerName).trim()) {
-    tags.push({ id: 6, value: String(customerName).trim() });
-  }
-  if (customerVat && String(customerVat).trim()) {
-    tags.push({ id: 7, value: String(customerVat).trim() });
+  if (includeCustomer) {
+    if (customerName && String(customerName).trim()) {
+      tags.push({ id: 6, value: String(customerName).trim() });
+    }
+    if (customerVat && String(customerVat).trim()) {
+      tags.push({ id: 7, value: String(customerVat).trim() });
+    }
   }
 
   let buffer = Buffer.alloc(0);
