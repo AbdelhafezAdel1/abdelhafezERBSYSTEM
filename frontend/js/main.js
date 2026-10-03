@@ -1261,7 +1261,7 @@ async function viewInvoice(id) {
                             overflow: hidden !important;
                             page-break-after: avoid;
                         }
-                        #qrcode { display: block !important; }
+                        #qrcode { display: block !important; transform: none !important; }
                     }
                     /* Preview styling */
                     .invoice-preview-scaling {
@@ -1298,7 +1298,7 @@ async function viewInvoice(id) {
 
                             <!-- Center: Barcode (QR Code) -->
                             <div class="w-1/3 flex justify-center pt-1">
-                                <div id="qrcode" class="p-1 bg-white border border-gray-200 shadow-sm"></div>
+                                <div id="qrcode" class="p-1 bg-white border border-gray-200 shadow-sm" style="transform: scale(0.55); transform-origin: center center;"></div>
                             </div>
 
                             <!-- Left: Invoice Meta -->
@@ -1469,8 +1469,9 @@ async function viewInvoice(id) {
                 }
                 new QRCode(qrContainer, {
                     text: qrData,
-                    width: 90,
-                    height: 90
+                    width: 180,
+                    height: 180,
+                    correctLevel: QRCode.CorrectLevel.M
                 });
             }
         }, 100);
