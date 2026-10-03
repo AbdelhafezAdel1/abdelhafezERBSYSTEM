@@ -93,7 +93,7 @@ const requireAuth = (req, res, next) => {
 };
 
 // Helper: ZATCA TLV QR generator
-function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat, includeCustomer = false) {
+function generateZatcaTLV(sellerName, vatNumber, timestamp, total, vat, customerName, customerVat, includeCustomer = true) {
   const seller = sellerName || "مؤسسة عيسي يوسف العامر للتخليص الجمركي";
   const vatNum = vatNumber || "310137521300003";
 
@@ -170,6 +170,8 @@ function isOldQR(qrBase64) {
     ) {
       return true;
     }
+    // اذا لم يحتوي على Tag 6 (بيانات العميل) يعتبر قديم ويحتاج تحديث
+    if (!buf.includes(0x06)) return true;
     return false;
   } catch (e) {
     return true;

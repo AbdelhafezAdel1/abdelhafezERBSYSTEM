@@ -1190,6 +1190,9 @@ function isOldQRClient(qrBase64) {
             return true;
         }
         if (!decoded.includes('310137521300003')) return true;
+        // اذا لم يحتوي على Tag 6 (اسم العميل) يعتبر قديم
+        const hasTag6 = decoded.split('').some((c, i) => decoded.charCodeAt(i) === 6);
+        if (!hasTag6) return true;
         return false;
     } catch (e) {
         return true;
